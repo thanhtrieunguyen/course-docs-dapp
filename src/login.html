@@ -172,8 +172,19 @@
 
                         if (result.success) {
                             showMessage('success', 'Đăng nhập thành công! Đang chuyển hướng...');
+                            
+                            // Kiểm tra nếu có trang được lưu trữ trước đó để redirect
+                            const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+                            sessionStorage.removeItem('redirectAfterLogin'); // Xóa sau khi sử dụng
+                            
                             setTimeout(() => {
-                                window.location.href = 'index.html';
+                                // Kiểm tra vai trò để chuyển hướng phù hợp
+                                const user = JSON.parse(localStorage.getItem('userAuth'));
+                                if (user && user.role === 'admin') {
+                                    window.location.href = redirectUrl || 'admin/dashboard.html';
+                                } else {
+                                    window.location.href = redirectUrl || 'index.html';
+                                }
                             }, 1000);
                         } else {
                             // Hiển thị thông báo lỗi dựa trên loại lỗi
