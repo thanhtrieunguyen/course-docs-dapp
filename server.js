@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 const cors = require('cors');
 
 app.use(cors({
-    origin: 'http://localhost:3001', 
+    origin: ['http://localhost:3001', 'http://localhost:3000'], 
     methods: ['GET', 'POST'],
     credentials: true
 }));
@@ -63,24 +63,87 @@ app.post('/api/verify-wallet', async (req, res) => {
     }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/register', async (req, res) => {
     try {
-        const { email, password, address } = req.body;
+        const { name, email, password, role, address } = req.body;
         
-        // Find user by email
-        const user = await User.findOne({ email });
-        if (!user || !await bcrypt.compare(password, user.password)) {
-            return res.json({ success: false, error: 'Invalid email or password' });
-        }
-        
-        // Verify wallet address matches the registered address
-        if (user.address !== address) {
-            return res.json({ 
-                success: false, 
-                error: 'Wallet address does not match the one registered with this account' 
+        // Validate required fields
+        if (!name || !email || !password || !role || !address) {
+            return res.json({
+                success: false,
+                error: 'All fields are required'
             });
         }
         
+        // Check if user already exists
+        const existingUser = await User.findOne({ 
+            $or: [
+                { email: email },
+                { address: address }
+            ]
+        });
+        
+        if (existingUser) {
+            return res.json({
+                success: false,
+                error: existingUser.email === email ? 
+                    'Email already registered' : 
+                    'Wallet address already registered'
+            });
+        }
+        
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Create new user
+        const newUser = new User({
+            name,
+            email,
+            password: hashedPassword,
+            role,
+            address
+        });
+        
+        // Save to database
+        await newUser.save();
+        
+        res.json({
+            success: true,
+            message: 'User registered successfully'
+        });
+    } catch (error) {
+        console.error('Error registering user:', error);
+        res.json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+app.post('/api/login', async (req, res) => {
+    try {
+        const { address, password } = req.body;
+        
+        // Find user by address
+        const user = await User.findOne({ address });
+        
+        if (!user) {
+            return res.json({ 
+                success: false, 
+                error: 'User not found' 
+            });
+        }
+        
+        // Verify password
+        const passwordValid = await bcrypt.compare(password, user.password);
+        if (!passwordValid) {
+            return res.json({ 
+                success: false, 
+                error: 'Invalid password' 
+            });
+        }
+        
+        // Generate JWT token
         const token = jwt.sign({ 
             id: user._id, 
             address: user.address,
@@ -101,8 +164,6 @@ app.post('/api/login', async (req, res) => {
         res.json({ success: false, error: error.message });
     }
 });
-
-
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);

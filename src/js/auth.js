@@ -190,6 +190,34 @@ const AuthApp = {
                 return { success: false, error: `Quyền "${role}" không tồn tại trong hệ thống` };
             }
 
+            // Register with MongoDB first
+            try {
+                const apiResponse = await fetch('http://localhost:3000/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        password,
+                        role,
+                        address: this.account
+                    })
+                });
+
+                const apiResult = await apiResponse.json();
+                
+                if (!apiResult.success) {
+                    return { success: false, error: apiResult.error || 'Lỗi đăng ký với hệ thống' };
+                }
+                
+                console.log("MongoDB registration successful:", apiResult);
+            } catch (dbError) {
+                console.error("MongoDB registration error:", dbError);
+                return { success: false, error: `Lỗi kết nối với cơ sở dữ liệu: ${dbError.message}` };
+            }
+
             // Call the blockchain register function
             const blockchainResult = await this.contracts.Auth.methods
                 .register(name, email, password, role)
@@ -210,12 +238,12 @@ const AuthApp = {
             localStorage.setItem('userAuth', JSON.stringify(userInfo));
             return { success: true, user: userInfo };
         } catch (error) {
-            console.error("Blockchain registration error:", error);
+            console.error("Registration error:", error);
             let errorMessage = error.message;
             if (errorMessage.includes("User already registered")) {
                 errorMessage = "Địa chỉ ví này đã được đăng ký";
             }
-            return { success: false, error: `Lỗi đăng ký blockchain: ${errorMessage}` };
+            return { success: false, error: `Lỗi đăng ký: ${errorMessage}` };
         }
     },
 
@@ -267,43 +295,76 @@ const AuthApp = {
                     return { success: false, error: 'Địa chỉ ví này chưa đăng ký', type: 'not_registered' };
                 }
 
-                // 3. Đăng nhập với blockchain
-                const blockchainResult = await this.contracts.Auth.methods.login(password).call({
-                    from: this.account
-                });
+                // 3. Kiểm tra đăng nhập với MongoDB
+                try {
+                    const apiResponse = await fetch('http://localhost:3000/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            address: this.account,
+                            password: password
+                        })
+                    });
 
-                console.log("Blockchain login result:", blockchainResult);
+                    const apiResult = await apiResponse.json();
+                    
+                    if (!apiResult.success) {
+                        return { 
+                            success: false, 
+                            error: apiResult.error || 'Đăng nhập thất bại', 
+                            type: 'wrong_password'
+                        };
+                    }
+                    
+                    console.log("MongoDB login successful:", apiResult);
+                    
+                    // 4. Nếu thành công với MongoDB, đăng nhập với blockchain
+                    const blockchainResult = await this.contracts.Auth.methods.login(password).call({
+                        from: this.account
+                    });
 
-                if (!blockchainResult) {
-                    return { success: false, error: 'Mật khẩu không chính xác', type: 'wrong_password' };
+                    console.log("Blockchain login result:", blockchainResult);
+
+                    if (!blockchainResult) {
+                        // Nếu blockchain đăng nhập thất bại nhưng MongoDB thành công,
+                        // có thể đồng bộ blockchain với MongoDB hoặc báo lỗi
+                        return { 
+                            success: false, 
+                            error: 'Mật khẩu không chính xác hoặc dữ liệu blockchain không đồng bộ', 
+                            type: 'wrong_password' 
+                        };
+                    }
+
+                    // 5. Lấy thông tin người dùng từ MongoDB
+                    const userData = apiResult.user;
+
+                    console.log("User data retrieved:", userData);
+
+                    // 6. Lưu thông tin đăng nhập vào local storage
+                    const userInfo = {
+                        address: this.account,
+                        name: userData.name,
+                        email: userData.email,
+                        role: userData.role,
+                        loggedIn: true
+                    };
+
+                    localStorage.setItem('userAuth', JSON.stringify(userInfo));
+                    return { success: true, user: userInfo };
+                } catch (dbError) {
+                    console.error("MongoDB login error:", dbError);
+                    return { 
+                        success: false, 
+                        error: `Lỗi kết nối với cơ sở dữ liệu: ${dbError.message}`,
+                        type: 'system_error'
+                    };
                 }
-
-                // 4. Lấy thông tin người dùng từ blockchain
-                const userData = await this.contracts.Auth.methods.getUser(this.account).call({
-                    from: this.account
-                });
-
-                console.log("User data retrieved:", userData);
-
-                // 5. Lưu thông tin đăng nhập vào local storage
-                const userInfo = {
-                    address: this.account,
-                    name: userData.name,
-                    email: userData.email,
-                    role: userData.role,
-                    loggedIn: true
-                };
-
-                localStorage.setItem('userAuth', JSON.stringify(userInfo));
-                return { success: true, user: userInfo };
             } catch (error) {
-                console.error("Blockchain registration error:", error);
+                console.error("Blockchain login error:", error);
                 let errorMessage = error.message;
-                if (errorMessage.includes("User already registered")) {
-                    errorMessage = "Địa chỉ ví này đã được đăng ký";
-                }
-                // Always return an object with a success property:
-                return { success: false, error: `Lỗi đăng ký blockchain: ${errorMessage}` };
+                return { success: false, error: `Lỗi đăng nhập blockchain: ${errorMessage}` };
             }
         } catch (error) {
             console.error("Login error:", error);

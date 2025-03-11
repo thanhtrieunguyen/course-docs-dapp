@@ -158,7 +158,20 @@
                                     .isRegistered(AuthApp.account)
                                     .call();
 
-                                if (isAlreadyRegistered) {
+                                // Also check if wallet is registered in MongoDB
+                                const mongoResponse = await fetch('http://localhost:3000/api/verify-wallet', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        address: AuthApp.account
+                                    })
+                                });
+                                
+                                const mongoResult = await mongoResponse.json();
+
+                                if (isAlreadyRegistered || (mongoResult.success && mongoResult.exists)) {
                                     showMessage('warning', 'Địa chỉ ví này đã được đăng ký. <a href="login.html" class="alert-link">Vui lòng đăng nhập</a>.');
                                     return;
                                 }

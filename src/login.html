@@ -117,13 +117,14 @@
                 // Kiểm tra trạng thái đăng ký của địa chỉ hiện tại
                 await checkRegistrationStatus();
 
-
                 // Xử lý sự kiện kết nối ví
                 document.getElementById('connectWalletBtn').addEventListener('click', async () => {
                     try {
                         if (window.ethereum) {
                             await window.ethereum.request({ method: 'eth_requestAccounts' });
                             await AuthApp.loadAccount();
+                            
+                            // Kiểm tra MongoDB và blockchain
                             await checkRegistrationStatus();
                         } else {
                             showMessage('error', 'Không tìm thấy MetaMask. Vui lòng cài đặt MetaMask để tiếp tục.');
@@ -166,7 +167,7 @@
                     try {
                         const password = document.getElementById('password').value;
 
-                        // Thực hiện đăng nhập
+                        // Thực hiện đăng nhập (đã cập nhật để kiểm tra cả blockchain và MongoDB)
                         const result = await AuthApp.login(password);
 
                         if (result.success) {
@@ -209,35 +210,71 @@
                     return;
                 }
 
-                const status = await AuthApp.checkRegistrationStatus();
-                console.log("Trạng thái đăng ký:", status);
+                // Kiểm tra cả blockchain và MongoDB
+                const blockchainStatus = await AuthApp.checkRegistrationStatus();
+                console.log("Trạng thái đăng ký blockchain:", blockchainStatus);
+                
+                // Kiểm tra MongoDB
+                const mongoResponse = await fetch('http://localhost:3000/api/verify-wallet', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        address: AuthApp.account
+                    })
+                });
+                
+                const mongoStatus = await mongoResponse.json();
+                console.log("Trạng thái đăng ký MongoDB:", mongoStatus);
 
                 const loginStatusEl = document.getElementById('loginStatus');
 
-                if (status.error) {
+                if (blockchainStatus.error) {
                     loginStatusEl.innerHTML = `
                     <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-circle"></i> ${status.error}
+                        <i class="fas fa-exclamation-circle"></i> ${blockchainStatus.error}
                     </div>`;
                     return;
                 }
 
-                if (status.registered) {
+                // Kiểm tra đồng bộ giữa blockchain và MongoDB
+                const isRegisteredOnBlockchain = blockchainStatus.registered;
+                const isRegisteredOnMongoDB = mongoStatus.success && mongoStatus.exists;
+
+                if (isRegisteredOnBlockchain && isRegisteredOnMongoDB) {
+                    // Đã đăng ký trên cả blockchain và MongoDB
                     loginStatusEl.innerHTML = `
                     <div class="alert alert-success">
                         <i class="fas fa-check-circle"></i> Địa chỉ ví đã đăng ký. Bạn có thể đăng nhập.
                     </div>`;
 
-                    if (status.userData) {
+                    if (blockchainStatus.userData) {
                         loginStatusEl.innerHTML += `
                         <div class="alert alert-info">
                             <p><strong>Thông tin tài khoản:</strong></p>
-                            <p>Họ tên: ${status.userData.name}</p>
-                            <p>Email: ${status.userData.email}</p>
-                            <p>Vai trò: ${translateRole(status.userData.role)}</p>
+                            <p>Họ tên: ${blockchainStatus.userData.name}</p>
+                            <p>Email: ${blockchainStatus.userData.email}</p>
+                            <p>Vai trò: ${translateRole(blockchainStatus.userData.role)}</p>
                         </div>`;
                     }
+
+                    // Nếu có email từ MongoDB, tự động điền vào form
+                    if (mongoStatus.email) {
+                        const emailInput = document.getElementById('email');
+                        if (emailInput) {
+                            emailInput.value = mongoStatus.email;
+                        }
+                    }
+                } else if (isRegisteredOnBlockchain || isRegisteredOnMongoDB) {
+                    // Đăng ký không đồng bộ
+                    loginStatusEl.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> Có sự không đồng bộ giữa dữ liệu blockchain và cơ sở dữ liệu.
+                        Vui lòng liên hệ quản trị viên.
+                    </div>`;
                 } else {
+                    // Chưa đăng ký
                     loginStatusEl.innerHTML = `
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle"></i> Địa chỉ ví này chưa đăng ký.
@@ -248,7 +285,7 @@
                 console.error("Lỗi khi kiểm tra trạng thái đăng ký:", error);
                 document.getElementById('loginStatus').innerHTML = `
                 <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle"></i> Lỗi khi kiểm tra trạng thái đăng ký: ${error.message}
+                    <i class="fas fa-exclamation-circle"></i> Lỗi: ${error.message}
                 </div>`;
             }
         }
