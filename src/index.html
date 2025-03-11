@@ -25,15 +25,15 @@
                     </a>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div id="adminLinkContainer" class="ml-2">
-                        <a href="admin/dashboard.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                    <!-- Mặc định ẩn và chỉ hiển thị cho vai trò admin -->
+                    <div id="adminLinkContainer" style="display: none;" class="ml-2">
+                        <a href="admin/dashboard.html" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded">
                             Trang quản trị
                         </a>
                     </div>
-                  </div>
-                <button onclick="AuthApp.logout()" id="logoutButton"
+                </div>
+                <button onclick="AuthApp.logout(); window.location.href='login.html';" id="logoutButton"
                     class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
-
             </div>
         </div>
     </nav>
@@ -88,6 +88,33 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.4/web3.min.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Khởi tạo Auth App
+                await AuthApp.init();
+                
+                // Kiểm tra đã đăng nhập chưa trước khi khởi tạo App
+                const loginStatus = await AuthApp.checkLoginStatus();
+                
+                if (!loginStatus.loggedIn) {
+                    console.log("Chưa đăng nhập, chuyển hướng đến trang đăng nhập");
+                    window.location.href = "login.html";
+                    return;
+                }
+                
+                console.log("Đã đăng nhập, tiếp tục khởi tạo ứng dụng");
+                
+                // Khởi tạo App chính
+                await App.init();
+                
+                // Cập nhật UI dựa trên vai trò
+                await App.updateUIBasedOnUserRole();
+            } catch (error) {
+                console.error("Lỗi khởi tạo ứng dụng:", error);
+            }
+        });
+    </script>
 </body>
 
 </html>

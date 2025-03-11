@@ -1,6 +1,6 @@
 const App = {
     web3: null,
-    contract: null,
+    contracts: {},
     account: null,
 
     checkAdminAccess: async function () {
@@ -15,7 +15,7 @@ const App = {
             if (adminLinkContainer) {
                 if (isAdmin) {
                     adminLinkContainer.innerHTML = `
-                <a href="admin.html" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+                <a href="admin/dashboard.html" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
                   Trang quản trị
                 </a>
               `;
@@ -32,29 +32,60 @@ const App = {
     },
 
     checkLogin: function () {
-        if (!localStorage.getItem('loggedIn')) {
+        const userAuth = localStorage.getItem('userAuth');
+        if (!userAuth) {
+            console.log("Không tìm thấy thông tin đăng nhập");
             window.location.href = "login.html";
             return false;
         }
-        return true;
+        
+        // Parse the userAuth JSON to check the loggedIn flag
+        try {
+            const user = JSON.parse(userAuth);
+            if (!user.loggedIn) {
+                console.log("Người dùng chưa đăng nhập");
+                window.location.href = "login.html";
+                return false;
+            }
+            
+            // Kiểm tra timestamp để đảm bảo phiên không quá cũ
+            const now = Date.now();
+            const loginTime = user.timestamp || 0;
+            const sessionLength = 24 * 60 * 60 * 1000; // 24 giờ
+            
+            if (now - loginTime > sessionLength) {
+                console.log("Phiên đăng nhập đã hết hạn");
+                localStorage.removeItem('userAuth');
+                window.location.href = "login.html";
+                return false;
+            }
+
+            // Cập nhật timestamp để kéo dài phiên đăng nhập
+            user.timestamp = Date.now();
+            localStorage.setItem('userAuth', JSON.stringify(user));
+            
+            console.log("Người dùng đã đăng nhập:", user.name, user.role);
+            return true;
+        } catch (error) {
+            console.error("Error parsing user auth data:", error);
+            localStorage.removeItem('userAuth'); // Clear invalid data
+            window.location.href = "login.html";
+            return false;
+        }
     },
 
-
     init: async function () {
-        await App.loadAccount();
-        await App.loadContracts();
-        await App.checkAdminAccess();
-        await App.renderApp();
-
-        // Check if user is logged in
-        if (!App.checkLogin()) {
-            return;
-        }
         try {
+            console.log("Initializing App...");
+            
             // Kiểm tra trạng thái đăng nhập trước khi tiếp tục
-            App.checkLogin();
-
-            // Kiểm tra MetaMask
+            if (!App.checkLogin()) {
+                console.log("Chưa đăng nhập, chuyển hướng đến trang đăng nhập");
+                return;
+            }
+            
+            console.log("Đã đăng nhập, tiếp tục khởi tạo ứng dụng");
+            // Khởi tạo Web3 và kết nối MetaMask
             if (window.ethereum) {
                 App.web3 = new Web3(window.ethereum);
                 await window.ethereum.enable();
@@ -69,16 +100,11 @@ const App = {
             document.getElementById('accountAddress').textContent =
                 `Account: ${App.account.substr(0, 6)}...${App.account.substr(-4)}`;
 
-            // Khởi tạo contract
-            const response = await fetch('build/contracts/CourseDocument.json');
-            const contractJson = await response.json();
-            App.contract = new App.web3.eth.Contract(
-                contractJson.abi,
-                contractJson.networks[await App.web3.eth.net.getId()].address
-            );
-
-            // Kiểm tra vai trò người dùng
-            await App.checkUserRole();
+            // Tải contracts
+            await App.loadContracts();
+            
+            // Kiểm tra vai trò người dùng và hiển thị UI tương ứng
+            await App.updateUIBasedOnUserRole();
 
             // Khởi tạo các event listeners
             App.bindEvents();
@@ -86,13 +112,74 @@ const App = {
             // Load danh sách tài liệu
             await App.loadDocuments();
 
-            // Thêm dòng này để tải danh sách khóa học
+            // Load danh sách khóa học
             await App.loadCourses();
-            // kiểm tra tài khoản người dùng
-            await App.checkUserRole();
-
         } catch (error) {
             console.error('Error initializing app:', error);
+        }
+    },
+    
+    // Thêm phương thức mới để cập nhật UI dựa trên vai trò người dùng
+    updateUIBasedOnUserRole: async function() {
+        try {
+            // Lấy element chứa link admin
+            const adminLinkContainer = document.getElementById('adminLinkContainer');
+            if (!adminLinkContainer) return;
+            
+            // Sử dụng AuthApp để kiểm tra vai trò admin
+            const isAdmin = await AuthApp.isAdmin();
+            
+            if (isAdmin) {
+                // Nếu là admin, hiển thị link trang quản trị
+                adminLinkContainer.style.display = 'block';
+            } else {
+                // Nếu không phải admin, ẩn link trang quản trị
+                adminLinkContainer.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error updating UI based on user role:', error);
+        }
+    },
+    
+    loadContracts: async function() {
+        try {
+            App.contracts = App.contracts || {};
+
+            // Load Auth contract
+            const authResponse = await fetch('../contracts/Auth.json');
+            const authArtifact = await authResponse.json();
+            const networkId = await App.web3.eth.net.getId();
+            const authDeployedNetwork = authArtifact.networks[networkId];
+            
+            if (!authDeployedNetwork) {
+                console.error('Auth contract not deployed to detected network');
+                return false;
+            }
+            
+            App.contracts.Auth = new App.web3.eth.Contract(
+                authArtifact.abi,
+                authDeployedNetwork.address
+            );
+            
+            // Load CourseDocument contract
+            const docResponse = await fetch('contracts/CourseDocument.json');
+            const docArtifact = await docResponse.json();
+            const docDeployedNetwork = docArtifact.networks[networkId];
+            
+            if (!docDeployedNetwork) {
+                console.error('CourseDocument contract not deployed to detected network');
+                return false;
+            }
+            
+            App.contracts.CourseDocument = new App.web3.eth.Contract(
+                docArtifact.abi,
+                docDeployedNetwork.address
+            );
+            
+            return true;
+        } catch (error) {
+            console.error('Error loading contracts:', error);
+            return false;
         }
     },
 
@@ -102,7 +189,7 @@ const App = {
 
     checkUserRole: async function () {
         try {
-            const role = await App.contract.methods.getUserRole(App.account).call();
+            const role = await App.contracts.Auth.methods.getUserRole(App.account).call();
             if (!role || role === "None") {
                 alert("Bạn chưa có quyền truy cập vào hệ thống!");
                 window.location.href = "login.html";
@@ -133,7 +220,7 @@ const App = {
         }
 
         try {
-            await App.contract.methods.uploadDocument(
+            await App.contracts.CourseDocument.methods.uploadDocument(
                 title,
                 description,
                 ipfsHash,
@@ -152,7 +239,7 @@ const App = {
 
     loadDocuments: async function () {
         try {
-            const documentList = await App.contract.methods.getAllDocuments().call();
+            const documentList = await App.contracts.CourseDocument.methods.getAllDocuments().call();
             const documentListElement = document.getElementById('documentList');
             documentListElement.innerHTML = '';
 
@@ -192,9 +279,10 @@ const App = {
         try {
             const courseDropdown = document.getElementById('courseId');
             courseDropdown.innerHTML = '';
-
-            const courseList = await App.contract.methods.getAllCourses().call();
-
+    
+            // Sửa dòng này
+            const courseList = await App.contracts.CourseDocument.methods.getAllCourses().call();
+    
             for (const course of courseList) {
                 const option = document.createElement('option');
                 option.value = course.courseId;
@@ -210,7 +298,7 @@ const App = {
     //để lấy danh sách tài liệu theo khóa học
     loadDocumentsByCourse: async function (courseId) {
         try {
-            const documentList = await App.contract.methods.getDocumentsByCourse(courseId).call();
+            const documentList = await App.contracts.CourseDocument.methods.getDocumentsByCourse(courseId).call();
             const documentListElement = document.getElementById('documentList');
             documentListElement.innerHTML = '';
 

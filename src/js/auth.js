@@ -66,7 +66,7 @@ const AuthApp = {
             this.contracts = {};
 
             // Tải ABI của contract Auth
-            const response = await fetch('contracts/Auth.json');
+            const response = await fetch('../contracts/Auth.json');
             const authArtifact = await response.json();
 
             // Get the network ID
@@ -97,7 +97,7 @@ const AuthApp = {
     loadContract: async function () {
         try {
             // Load Auth Contract ABI
-            const response = await fetch('contracts/Auth.json');
+            const response = await fetch('../contracts/Auth.json');
             const authArtifact = await response.json();
 
             // Get the network ID
@@ -165,7 +165,12 @@ const AuthApp = {
             }
             this.account = accounts[0];
             console.log("Connected account:", this.account);
-            document.getElementById('walletAddress').textContent = this.account;
+
+            // Add a check before accessing the element
+            const walletAddressElement = document.getElementById('walletAddress');
+            if (walletAddressElement) {
+                walletAddressElement.textContent = this.account;
+            }
             return true;
         } catch (error) {
             console.error("Lỗi khi tải tài khoản:", error);
@@ -207,11 +212,11 @@ const AuthApp = {
                 });
 
                 const apiResult = await apiResponse.json();
-                
+
                 if (!apiResult.success) {
                     return { success: false, error: apiResult.error || 'Lỗi đăng ký với hệ thống' };
                 }
-                
+
                 console.log("MongoDB registration successful:", apiResult);
             } catch (dbError) {
                 console.error("MongoDB registration error:", dbError);
@@ -309,17 +314,17 @@ const AuthApp = {
                     });
 
                     const apiResult = await apiResponse.json();
-                    
+
                     if (!apiResult.success) {
-                        return { 
-                            success: false, 
-                            error: apiResult.error || 'Đăng nhập thất bại', 
+                        return {
+                            success: false,
+                            error: apiResult.error || 'Đăng nhập thất bại',
                             type: 'wrong_password'
                         };
                     }
-                    
+
                     console.log("MongoDB login successful:", apiResult);
-                    
+
                     // 4. Nếu thành công với MongoDB, đăng nhập với blockchain
                     const blockchainResult = await this.contracts.Auth.methods.login(password).call({
                         from: this.account
@@ -330,10 +335,10 @@ const AuthApp = {
                     if (!blockchainResult) {
                         // Nếu blockchain đăng nhập thất bại nhưng MongoDB thành công,
                         // có thể đồng bộ blockchain với MongoDB hoặc báo lỗi
-                        return { 
-                            success: false, 
-                            error: 'Mật khẩu không chính xác hoặc dữ liệu blockchain không đồng bộ', 
-                            type: 'wrong_password' 
+                        return {
+                            success: false,
+                            error: 'Mật khẩu không chính xác hoặc dữ liệu blockchain không đồng bộ',
+                            type: 'wrong_password'
                         };
                     }
 
@@ -348,15 +353,17 @@ const AuthApp = {
                         name: userData.name,
                         email: userData.email,
                         role: userData.role,
-                        loggedIn: true
+                        token: apiResult.token, // Đảm bảo token được lưu trữ
+                        loggedIn: true,
+                        timestamp: Date.now() // Thêm timestamp để kiểm tra phiên đăng nhập
                     };
 
                     localStorage.setItem('userAuth', JSON.stringify(userInfo));
                     return { success: true, user: userInfo };
                 } catch (dbError) {
                     console.error("MongoDB login error:", dbError);
-                    return { 
-                        success: false, 
+                    return {
+                        success: false,
                         error: `Lỗi kết nối với cơ sở dữ liệu: ${dbError.message}`,
                         type: 'system_error'
                     };
@@ -387,12 +394,33 @@ const AuthApp = {
             }
 
             const user = JSON.parse(userAuth);
+            
+            // Kiểm tra xem có token hợp lệ không
+            if (!user.token) {
+                localStorage.removeItem('userAuth');
+                return { loggedIn: false, error: 'Token không hợp lệ' };
+            }
+            
+            // Kiểm tra timestamp để đảm bảo phiên không quá cũ
+            const now = Date.now();
+            const loginTime = user.timestamp || 0;
+            const sessionLength = 24 * 60 * 60 * 1000; // 24 giờ
+            
+            if (now - loginTime > sessionLength) {
+                localStorage.removeItem('userAuth');
+                return { loggedIn: false, error: 'Phiên đăng nhập đã hết hạn' };
+            }
 
             // Kết nối đến MetaMask để lấy địa chỉ hiện tại
             if (!await this.loadAccount()) {
                 // Người dùng không kết nối với MetaMask
-                localStorage.removeItem('userAuth');
                 return { loggedIn: false, error: 'Không thể kết nối với MetaMask' };
+            }
+
+            // Nếu không tìm thấy account, có thể vẫn đang kết nối
+            if (!this.account) {
+                console.log("Đang chờ kết nối MetaMask...");
+                return { loggedIn: true, user: user }; // Giả định vẫn đăng nhập nếu có userAuth
             }
 
             // Kiểm tra xem địa chỉ ví hiện tại có phải là địa chỉ đã đăng nhập không
@@ -405,16 +433,9 @@ const AuthApp = {
                 };
             }
 
-            // Xác minh lại với blockchain (tùy chọn)
-            const isRegistered = await this.contracts.Auth.methods.isRegistered(this.account).call();
-            if (!isRegistered) {
-                console.log("Tài khoản không còn đăng ký trên blockchain");
-                localStorage.removeItem('userAuth');
-                return {
-                    loggedIn: false,
-                    error: 'Tài khoản không còn tồn tại trên blockchain'
-                };
-            }
+            // Cập nhật timestamp để kéo dài phiên đăng nhập
+            user.timestamp = Date.now();
+            localStorage.setItem('userAuth', JSON.stringify(user));
 
             return {
                 loggedIn: true,
@@ -423,6 +444,40 @@ const AuthApp = {
         } catch (error) {
             console.error("Lỗi khi kiểm tra trạng thái đăng nhập:", error);
             return { loggedIn: false, error: error.message };
+        }
+    },
+
+    // Thêm hàm kiểm tra vai trò admin
+    isAdmin: async function () {
+        try {
+            if (!this.account) {
+                await this.loadAccount();
+                if (!this.account) return false;
+            }
+
+            // Kiểm tra thông tin từ local storage trước
+            const userAuth = localStorage.getItem('userAuth');
+            if (userAuth) {
+                const user = JSON.parse(userAuth);
+                if (user.role === 'admin') {
+                    // Xác minh lại với blockchain
+                    try {
+                        const role = await this.contracts.Auth.methods.getUserRole(this.account).call();
+                        return role === 'admin';
+                    } catch (error) {
+                        console.error("Lỗi khi xác thực vai trò với blockchain:", error);
+                        return user.role === 'admin'; // Trả về kết quả từ local storage nếu blockchain gặp lỗi
+                    }
+                }
+                return false;
+            }
+
+            // Nếu không có thông tin trong local storage, kiểm tra trực tiếp trên blockchain
+            const role = await this.contracts.Auth.methods.getUserRole(this.account).call();
+            return role === 'admin';
+        } catch (error) {
+            console.error("Lỗi khi kiểm tra vai trò quản trị:", error);
+            return false;
         }
     },
 
@@ -454,6 +509,7 @@ const AuthApp = {
 
     logout: function () {
         localStorage.removeItem('userAuth');
+        window.location.href = "login.html";
         return true;
     },
 

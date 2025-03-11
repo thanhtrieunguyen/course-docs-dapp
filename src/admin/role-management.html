@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý phân quyền - Hệ thống quản lý tài liệu khóa học</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+
+<body class="bg-gray-100">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold">Quản lý phân quyền - Hệ thống quản lý tài liệu</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="accountAddress" class="text-sm text-gray-600"></span>
+                    <a href="dashboard.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                        Bảng điều khiển
+                    </a>
+                    <button onclick="AuthApp.logout(); window.location.href='../login.html';" id="logoutButton"
+                        class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Menu -->
+    <div class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex space-x-8">
+                <a href="dashboard.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Tổng quan
+                </a>
+                <a href="user-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                    <i class="fas fa-users mr-2"></i>Quản lý người dùng
+                </a>
+                <a href="role-management.html" class="px-3 py-4 text-blue-600 border-b-2 border-blue-600 font-medium">
+                    <i class="fas fa-user-shield mr-2"></i>Phân quyền hệ thống
+                </a>
+                <a href="#" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                    <i class="fas fa-book mr-2"></i>Quản lý tài liệu
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Status Message -->
+        <div id="statusMessage" class="mb-4 hidden"></div>
+
+        <!-- Role Permissions Management -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Admin Role -->
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                <h2 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-user-shield mr-2 text-red-500"></i>Quản trị viên
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">Quyền cao nhất trong hệ thống, có thể quản lý và phân quyền tất cả
+                    người dùng</p>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Quản lý người dùng</span>
+                        <span class="text-green-500"><i class="fas fa-check"></i></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Xác thực tài liệu</span>
+                        <span class="text-green-500"><i class="fas fa-check"></i></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Xóa tài liệu</span>
+                        <span class="text-green-500"><i class="fas fa-check"></i></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Quản lý phân quyền</span>
+                        <span class="text-green-500"><i class="fas fa-check"></i></span>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-sm italic text-gray-500">
+                    * Quyền quản trị không thể chỉnh sửa
+                </div>
+            </div>
+
+            <!-- Teacher Role -->
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                <h2 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-chalkboard-teacher mr-2 text-blue-500"></i>Giảng viên
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">Quyền tạo khóa học và quản lý tài liệu khóa học</p>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Tải lên tài liệu</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="teacherUpload" class="sr-only peer" checked>
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Xem tài liệu</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="teacherView" class="sr-only peer" checked>
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Quản lý khóa học</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="teacherManageCourse" class="sr-only peer" checked>
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Xóa tài liệu</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="teacherDelete" class="sr-only peer">
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <button id="saveTeacherPermissions"
+                    class="mt-4 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded text-sm">
+                    <i class="fas fa-save mr-2"></i>Lưu thay đổi
+                </button>
+            </div>
+
+            <!-- Student Role -->
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                <h2 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-user-graduate mr-2 text-green-500"></i>Học viên
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">Quyền xem và tương tác với tài liệu học tập</p>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Xem tài liệu</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="studentView" class="sr-only peer" checked>
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Đánh giá tài liệu</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="studentReview" class="sr-only peer" checked>
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Báo cáo tài liệu</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="studentReport" class="sr-only peer" checked>
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Tải lên tài liệu</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="studentUpload" class="sr-only peer">
+                            <div
+                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <button id="saveStudentPermissions"
+                    class="mt-4 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded text-sm">
+                    <i class="fas fa-save mr-2"></i>Lưu thay đổi
+                </button>
+            </div>
+        </div>
+
+        <!-- Permission Overview -->
+        <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-lg font-semibold mb-4">Tổng quan phân quyền</h2>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="py-2 px-4 border-b text-left">Tính năng</th>
+                            <th class="py-2 px-4 border-b text-center">Quản trị viên</th>
+                            <th class="py-2 px-4 border-b text-center">Giảng viên</th>
+                            <th class="py-2 px-4 border-b text-center">Học viên</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="py-2 px-4 border-b">Tải lên tài liệu</td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableTeacherUpload"><span
+                                    class="text-green-500"><i class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableStudentUpload"><span
+                                    class="text-red-500"><i class="fas fa-times"></i></span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4 border-b">Xem tài liệu</td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableTeacherView"><span
+                                    class="text-green-500"><i class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableStudentView"><span
+                                    class="text-green-500"><i class="fas fa-check"></i></span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4 border-b">Xóa tài liệu</td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableTeacherDelete"><span
+                                    class="text-red-500"><i class="fas fa-times"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-red-500"><i
+                                        class="fas fa-times"></i></span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4 border-b">Xác thực tài liệu</td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-red-500"><i
+                                        class="fas fa-times"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-red-500"><i
+                                        class="fas fa-times"></i></span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4 border-b">Đánh giá tài liệu</td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableStudentReview"><span
+                                    class="text-green-500"><i class="fas fa-check"></i></span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4 border-b">Quản lý khóa học</td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableTeacherManageCourse"><span
+                                    class="text-green-500"><i class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-red-500"><i
+                                        class="fas fa-times"></i></span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4 border-b">Báo cáo tài liệu</td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center"><span class="text-green-500"><i
+                                        class="fas fa-check"></i></span></td>
+                            <td class="py-2 px-4 border-b text-center" id="tableStudentReport"><span
+                                    class="text-green-500"><i class="fas fa-check"></i></span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin/role-management.js"></script>
+</body>
+
+</html>

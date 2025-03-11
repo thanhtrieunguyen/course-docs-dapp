@@ -55,7 +55,7 @@ const AdminApp = {
     initContracts: async function () {
         try {
             // Initialize Auth contract
-            const authResponse = await fetch('contracts/Auth.json');
+            const authResponse = await fetch('../contracts/Auth.json');
             const authArtifact = await authResponse.json();
             const authNetworkId = await AdminApp.web3.eth.net.getId();
             const authDeployedNetwork = authArtifact.networks[authNetworkId];
