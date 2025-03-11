@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản trị hệ thống - Quản lý tài liệu khóa học</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold">Trang Quản trị - Hệ thống quản lý tài liệu</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="accountAddress" class="text-sm text-gray-600"></span>
+                    <a href="index.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                        Trang chính
+                    </a>
+                    <button onclick="AuthApp.logout()" id="logoutButton"
+                        class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- User Management Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-lg font-semibold mb-4">Quản lý người dùng</h2>
+                <div class="mb-4">
+                    <input type="text" id="userSearchInput" placeholder="Tìm kiếm người dùng..." 
+                        class="w-full p-2 border rounded">
+                </div>
+                <div id="usersList" class="divide-y max-h-96 overflow-y-auto">
+                    <!-- Users will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Content Management Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-lg font-semibold mb-4">Quản lý nội dung</h2>
+                <div class="mb-4">
+                    <input type="text" id="contentSearchInput" placeholder="Tìm kiếm tài liệu..." 
+                        class="w-full p-2 border rounded">
+                </div>
+                <div id="documentsList" class="divide-y max-h-96 overflow-y-auto">
+                    <!-- Documents will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+            <!-- Report Management Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-lg font-semibold mb-4">Quản lý báo cáo vi phạm</h2>
+                <div id="reportsList" class="divide-y max-h-96 overflow-y-auto">
+                    <!-- Reports will be loaded here -->
+                </div>
+            </div>
+
+            <!-- System Settings Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-lg font-semibold mb-4">Cấu hình hệ thống</h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Trạng thái hệ thống</label>
+                    <div class="flex items-center">
+                        <button id="pauseSystemBtn" class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 mr-2">
+                            Tạm dừng
+                        </button>
+                        <button id="resumeSystemBtn" class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">
+                            Kích hoạt
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,36 @@
+Cài đặt các công cụ cần thiết:
+
+npm install -g truffle
+npm install @openzeppelin/contracts
+npm install @truffle/hdwallet-provider
+
+Khởi tạo dự án:
+
+mkdir course-docs-dapp
+cd course-docs-dapp
+truffle init
+
+Cấu hình Ganache:
+
+
+Mở Ganache UI
+Tạo workspace mới
+Copy mnemonic và địa chỉ RPC để cấu hình trong truffle-config.js
+
+
+Triển khai smart contract:
+
+truffle compile
+truffle migrate --network development
+
+Chạy ứng dụng:
+
+npm install lite-server
+npx lite-server
+Các tính năng chính:
+
+Tải lên tài liệu với thông tin: tiêu đề, mô tả, IPFS hash
+Đặt quyền truy cập công khai/riêng tư cho tài liệu
+Xem danh sách tài liệu đã tải lên
+Phân quyền admin và giảng viên
+Quản lý khóa học và tài liệu
