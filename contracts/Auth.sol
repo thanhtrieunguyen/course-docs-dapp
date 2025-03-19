@@ -31,6 +31,7 @@ contract Auth {
         string newRole,
         uint256 timestamp
     );
+    event UserUpdated(address indexed userAddress, string name, string email);
 
     constructor() {
         // Initialize roles
@@ -40,7 +41,12 @@ contract Auth {
 
         // Set contract deployer as the initial admin
         userRoles[msg.sender] = "admin";
-        users[msg.sender] = User("System Admin", "admin@example.com", "123456", true);
+        users[msg.sender] = User(
+            "System Admin",
+            "admin@example.com",
+            "123456",
+            true
+        );
         userAddresses.push(msg.sender);
     }
 
@@ -102,7 +108,9 @@ contract Auth {
     function login(string memory _passwordHash) public view returns (bool) {
         require(users[msg.sender].registered, "User not registered");
         User memory user = users[msg.sender];
-        return keccak256(abi.encodePacked(user.passwordHash)) == keccak256(abi.encodePacked(_passwordHash));
+        return
+            keccak256(abi.encodePacked(user.passwordHash)) ==
+            keccak256(abi.encodePacked(_passwordHash));
     }
 
     function roleExists(string memory _role) public view returns (bool) {
@@ -123,6 +131,17 @@ contract Auth {
     ) public userExists(msg.sender) {
         User storage user = users[msg.sender];
         user.passwordHash = _newPasswordHash;
+    }
+
+    function updateUser(
+        address userAddress,
+        string memory name,
+        string memory email
+    ) public onlyAdmin {
+        require(isRegistered(userAddress), "User not found");
+        users[userAddress].name = name;
+        users[userAddress].email = email;
+        emit UserUpdated(userAddress, name, email);
     }
 
     // Access Control Helpers

@@ -37,7 +37,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        console.log("Thông tin đăng nhập hợp lệ, tiếp tục khởi tạo AuthApp");
+        // Validate token with server if needed
+        try {
+            const response = await fetch('http://localhost:3000/api/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`
+                }
+            });
+
+            if (!response.ok) {
+                console.log("Token validation failed on server:", response.status);
+                localStorage.removeItem('userAuth');
+                localStorage.removeItem('token');
+                redirectToLogin();
+                return;
+            }
+
+            // Success - update token expiration
+            const userData = await response.json();
+            if (userData && userData.success && userData.user) {
+                // Update the stored user data with fresh data from server
+                const updatedUser = {
+                    ...user,
+                    ...userData.user,
+                    timestamp: Date.now() // Refresh the timestamp
+                };
+                localStorage.setItem('userAuth', JSON.stringify(updatedUser));
+                localStorage.setItem('token', user.token); // Ensure token is also stored separately
+            }
+            
+            console.log("Thông tin đăng nhập hợp lệ, tiếp tục khởi tạo AuthApp");
+        } catch (error) {
+            console.error("Error during token validation:", error);
+            redirectToLogin();
+            return;
+        }
         
         // Khởi tạo Auth App và kiểm tra với blockchain
         await AuthApp.init();
@@ -91,12 +126,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+let redirecting = false;
+
 function redirectToLogin() {
-    // Lưu URL hiện tại để sau khi đăng nhập có thể quay lại
-    const currentPage = window.location.pathname.split('/').pop();
-    if (currentPage !== 'login.html' && currentPage !== 'register.html') {
+    if (redirecting) return;
+    redirecting = true;
+    
+    // Store current page for redirect after login
+    if (window.location.pathname !== '/login.html') {
         sessionStorage.setItem('redirectAfterLogin', window.location.href);
     }
+    
     window.location.href = "login.html";
 }
 

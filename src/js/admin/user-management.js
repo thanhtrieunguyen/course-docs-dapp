@@ -297,42 +297,79 @@ const UserManagement = {
                 this.showStatus('error', 'Không có người dùng nào được chọn');
                 return;
             }
-            
-            const address = document.getElementById('editUserId').value;
-            const newRole = document.getElementById('editRole').value;
-            
-            // Only admin can update user roles
-            if (newRole !== UserManagement.selectedUser.role) {
-                // Update role on blockchain
-                await UserManagement.contracts.auth.methods.setUserRole(address, newRole)
-                    .send({ from: UserManagement.account });
-                    
-                // Update user data in MongoDB via API
-                const response = await fetch('/api/admin/update-user-role', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        address: address,
-                        role: newRole
-                    })
-                });
-                
-                const result = await response.json();
-                if (!result.success) {
-                    throw new Error(result.error || 'Không thể cập nhật vai trò trong cơ sở dữ liệu');
-                }
-                
-                this.showStatus('success', 'Cập nhật thành công vai trò người dùng');
+
+            // Get token from localStorage
+            const userAuth = localStorage.getItem('userAuth');
+            if (!userAuth) {
+                this.showStatus('error', 'Phiên đăng nhập không hợp lệ');
+                return;
             }
+
+            const { token } = JSON.parse(userAuth);
+            if (!token) {
+                this.showStatus('error', 'Token không hợp lệ');
+                return;
+            }
+
+            const address = document.getElementById('editUserId').value;
+            const name = document.getElementById('editName').value;
+            const email = document.getElementById('editEmail').value; 
+            const newRole = document.getElementById('editRole').value;
+
+            // Validate
+            if (!name || !email) {
+                this.showStatus('error', 'Vui lòng điền đầy đủ thông tin');
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                this.showStatus('error', 'Email không hợp lệ');
+                return;
+            }
+
+            // Only update blockchain if role changed
+            const roleChanged = newRole !== UserManagement.selectedUser.role;
+            if (roleChanged) {
+                try {
+                    await UserManagement.contracts.auth.methods.setUserRole(address, newRole)
+                        .send({ from: UserManagement.account });
+                } catch (error) {
+                    throw new Error('Lỗi khi cập nhật vai trò: ' + error.message);
+                }
+            }
+
+            // Update MongoDB
+            const response = await fetch('/api/admin/update-user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    address,
+                    name,
+                    email,
+                    role: newRole // Include role in update
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Không thể cập nhật thông tin người dùng');
+            }
+
+            this.showStatus('success', 'Cập nhật thông tin người dùng thành công');
             
-            // Reload users
+            // Reload users from blockchain to update display
             await this.loadUsers();
             
-            // Clear form and hide edit panel
             this.cancelEdit();
-            
+
         } catch (error) {
             console.error("Error updating user:", error);
             this.showStatus('error', 'Lỗi khi cập nhật người dùng: ' + error.message);

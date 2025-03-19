@@ -6,7 +6,7 @@ module.exports = {
     "index": "login.html",
     "routes": {
       "/node_modules": "node_modules",
-      "/contracts": "./src/contracts"
+      "/contracts": "./src/contracts" // This maps /contracts to ./src/contracts
     },
     middleware: {
       1: createProxyMiddleware({
@@ -19,6 +19,6 @@ module.exports = {
     }
   },
   "files": ["./src/**/*.{html,css,js}"],
-  "port": 3000,
+  "port": 3001,
   "startPath": "/login.html"
 }

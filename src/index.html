@@ -1,14 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống quản lý tài liệu khóa học</title>
+    <title>Hệ Thống Quản Lý Tài Liệu Khóa Học</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link href="css/style.css" rel="stylesheet">
 </head>
-
 <body class="bg-gray-100">
     <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4">
@@ -16,59 +15,85 @@
                 <div class="flex items-center">
                     <h1 class="text-xl font-bold">Quản lý tài liệu khóa học</h1>
                 </div>
-                <div class="flex items-center">
-                    <span id="accountAddress" class="text-sm text-gray-600"></span>
-                </div>
                 <div class="flex items-center space-x-4">
-                    <a href="index.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
-                        Trang chính
-                    </a>
+                    <div id="userInfo" class="text-sm text-gray-600"></div>
+                    <button class="logout-btn bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">
+                        Đăng xuất
+                    </button>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <!-- Mặc định ẩn và chỉ hiển thị cho vai trò admin -->
-                    <div id="adminLinkContainer" style="display: none;" class="ml-2">
-                        <a href="admin/dashboard.html" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded">
-                            Trang quản trị
-                        </a>
-                    </div>
-                </div>
-                <button onclick="AuthApp.logout(); window.location.href='login.html';" id="logoutButton"
-                    class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
             </div>
         </div>
     </nav>
 
     <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Status Message Display -->
+        <div id="statusMessage" class="mb-4 hidden"></div>
+        
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- Upload Document Form -->
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-lg font-semibold mb-4">Tải lên tài liệu mới</h2>
-                <form id="uploadForm">
+                <form id="uploadForm" enctype="multipart/form-data">
                     <div class="mb-4">
                         <label class="block text-sm font-medium mb-2">Tiêu đề</label>
-                        <input type="text" id="title" class="w-full p-2 border rounded" required>
+                        <input type="text" id="title" name="title" class="w-full p-2 border rounded" required>
                     </div>
                     <div class="mb-4">
                         <label class="block text-sm font-medium mb-2">Mô tả</label>
-                        <textarea id="description" class="w-full p-2 border rounded" rows="3" required></textarea>
+                        <textarea id="description" name="description" class="w-full p-2 border rounded" rows="3" required></textarea>
                     </div>
                     <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">File IPFS Hash</label>
-                        <input type="text" id="ipfsHash" class="w-full p-2 border rounded" required>
+                        <label class="block text-sm font-medium mb-2">File tài liệu</label>
+                        <div class="flex items-center justify-center w-full">
+                            <label for="documentFile" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Nhấn để chọn file</span> hoặc kéo thả vào đây</p>
+                                    <p class="text-xs text-gray-500">PDF, DOC, DOCX (Tối đa 10MB)</p>
+                                </div>
+                                <input type="file" id="documentFile" class="hidden" name="file" accept=".pdf,.doc,.docx">
+                            </label>
+                        </div>
+                        <div id="filePreview" class="mt-2 hidden">
+                            <div class="flex items-center p-2 bg-gray-50 rounded">
+                                <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M4 18h12V6h-4V2H4v16zm2-6h8v2H6v-2zm0-3h8v2H6V9zm0-3h4v2H6V6z"></path>
+                                </svg>
+                                <div class="ml-2">
+                                    <p id="fileName" class="text-sm font-medium"></p>
+                                    <p id="fileSize" class="text-xs text-gray-500"></p>
+                                </div>
+                                <button id="removeFile" class="ml-auto text-gray-500 hover:text-gray-700">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-4">
-                        <label for="courseId" class="block text-sm font-medium mb-2">Chọn khóa học</label>
-                        <select id="courseId" class="w-full p-2 border rounded">
-                            <!-- Danh sách khóa học sẽ được load từ blockchain -->
+                        <label class="block text-sm font-medium mb-2">Khoa </label>
+                        <select id="facultyId" class="w-full p-2 border rounded" name="facultyId">
+                            <option value="">Không thuộc khoa nào</option>
+                            <!-- Course options will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Môn học </label>
+                        <select id="subjectId" class="w-full p-2 border rounded" name="subjectId">
+                            <option value="">Không thuộc môn học nào</option>
+                            <!-- Course options will be loaded dynamically -->
                         </select>
                     </div>
                     <div class="mb-4">
                         <label class="flex items-center">
-                            <input type="checkbox" id="isPublic" class="mr-2">
+                            <input type="checkbox" id="isPublic" class="mr-2" name="isPublic">
                             <span class="text-sm">Công khai tài liệu</span>
                         </label>
                     </div>
-                    <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                    <button type="submit" id="uploadButton" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
                         Tải lên
                     </button>
                 </form>
@@ -77,44 +102,47 @@
             <!-- Document List -->
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-lg font-semibold mb-4">Danh sách tài liệu</h2>
+                <div class="mb-4">
+                    <input type="text" id="searchDocument" placeholder="Tìm kiếm tài liệu..." class="w-full p-2 border rounded">
+                </div>
                 <div id="documentList" class="space-y-4">
-                    <!-- Documents will be loaded here -->
+                    <p class="text-center text-gray-500">Đang tải danh sách tài liệu...</p>
                 </div>
             </div>
         </div>
     </div>
 
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.4/web3.min.js"></script>
+    <!-- Load Web3 first -->
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    
+    <!-- Then load our supporting scripts -->
     <script src="js/auth.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/files.js"></script>
+    <script src="js/auth-storage.js"></script>
+    <!-- Make sure these run in order -->
+    <script src="js/checklg.js"></script>
+    <script src="js/UploadDocument.js"></script>
+    
+    <!-- Manually trigger initialization after everything else is loaded -->
     <script>
-        document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                // Khởi tạo Auth App
-                await AuthApp.init();
-                
-                // Kiểm tra đã đăng nhập chưa trước khi khởi tạo App
-                const loginStatus = await AuthApp.checkLoginStatus();
-                
-                if (!loginStatus.loggedIn) {
-                    console.log("Chưa đăng nhập, chuyển hướng đến trang đăng nhập");
-                    window.location.href = "login.html";
-                    return;
+        window.addEventListener('load', function() {
+            // Check if our auth module is ready first
+            const authCheckInterval = setInterval(() => {
+                if (window.AuthApp && window.AuthApp.web3) {
+                    clearInterval(authCheckInterval);
+                    console.log("Auth module ready, initializing upload module...");
+                    if (window.initializeUploadSystem) {
+                        window.initializeUploadSystem();
+                    }
                 }
-                
-                console.log("Đã đăng nhập, tiếp tục khởi tạo ứng dụng");
-                
-                // Khởi tạo App chính
-                await App.init();
-                
-                // Cập nhật UI dựa trên vai trò
-                await App.updateUIBasedOnUserRole();
-            } catch (error) {
-                console.error("Lỗi khởi tạo ứng dụng:", error);
-            }
+            }, 500);
+            
+            // Timeout after 10 seconds of waiting
+            setTimeout(() => {
+                clearInterval(authCheckInterval);
+                console.log("Timed out waiting for Auth module");
+            }, 10000);
         });
     </script>
 </body>
-
 </html>
