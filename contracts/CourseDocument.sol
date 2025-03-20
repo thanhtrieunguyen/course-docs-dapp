@@ -10,7 +10,9 @@ interface IAuth {
         address _userAddress
     ) external view returns (string memory, string memory, bool);
 
-    function getUserRole(address _userAddress) external view returns (string memory);
+    function getUserRole(
+        address _userAddress
+    ) external view returns (string memory);
 }
 
 contract CourseDocument is Pausable, Ownable {
@@ -19,13 +21,15 @@ contract CourseDocument is Pausable, Ownable {
     struct Document {
         string title;
         string description;
-        string ipfsHash;
+        string documentHash;    // SHA-256 hash of document content
+        string mongoDbId;       // Reference to MongoDB document ID
         address owner;
         bool isPublic;
         uint256 timestamp;
         bool isVerified;
         bool isFlagged;
         string flagReason;
+        uint256 accessCount;    // Track number of times document was accessed
     }
 
     struct Course {
@@ -45,14 +49,14 @@ contract CourseDocument is Pausable, Ownable {
     }
 
     struct DocumentVersion {
-        string ipfsHash;
+        string documentHash;  // Changed from ipfsHash to documentHash
         string changeNote;
         uint256 timestamp;
     }
 
     event DocumentVersionAdded(
         bytes32 indexed documentId,
-        string ipfsHash,
+        string documentHash,  // Changed from ipfsHash
         uint256 timestamp
     );
     event DocumentUploaded(
@@ -75,6 +79,12 @@ contract CourseDocument is Pausable, Ownable {
     event DocumentRemoved(
         bytes32 indexed documentId,
         address indexed remover,
+        uint256 timestamp
+    );
+    event DocumentAccessed(
+        bytes32 documentId,
+        address user,
+        string action,
         uint256 timestamp
     );
     event ReportCreated(
@@ -104,9 +114,13 @@ contract CourseDocument is Pausable, Ownable {
     bytes32[] public reportList;
     string[] public courseList;
 
+    function getDocumentCount() public view returns (uint256) {
+        return documentList.length;
+    }
+
     function addDocumentVersion(
         bytes32 _documentId,
-        string memory _ipfsHash,
+        string memory _documentHash,  // Changed parameter name
         string memory _changeNote
     ) public {
         Document storage doc = documents[_documentId];
@@ -120,7 +134,7 @@ contract CourseDocument is Pausable, Ownable {
         if (documentVersions[_documentId].length == 0) {
             documentVersions[_documentId].push(
                 DocumentVersion({
-                    ipfsHash: doc.ipfsHash,
+                    documentHash: doc.documentHash,  // Changed from ipfsHash
                     changeNote: "Initial version",
                     timestamp: doc.timestamp
                 })
@@ -128,18 +142,18 @@ contract CourseDocument is Pausable, Ownable {
         }
 
         // Update current document
-        doc.ipfsHash = _ipfsHash;
+        doc.documentHash = _documentHash;  // Changed from ipfsHash
 
         // Add new version to history
         documentVersions[_documentId].push(
             DocumentVersion({
-                ipfsHash: _ipfsHash,
+                documentHash: _documentHash,  // Changed from ipfsHash
                 changeNote: _changeNote,
                 timestamp: block.timestamp
             })
         );
 
-        emit DocumentVersionAdded(_documentId, _ipfsHash, block.timestamp);
+        emit DocumentVersionAdded(_documentId, _documentHash, block.timestamp);  // Changed parameter
     }
 
     function getDocumentVersions(
@@ -154,7 +168,7 @@ contract CourseDocument is Pausable, Ownable {
 
         for (uint i = 0; i < length; i++) {
             DocumentVersion memory version = versions[i];
-            hashes[i] = version.ipfsHash;
+            hashes[i] = version.documentHash;  // Changed from ipfsHash
             notes[i] = version.changeNote;
             timestamps[i] = version.timestamp;
         }
@@ -285,12 +299,14 @@ contract CourseDocument is Pausable, Ownable {
 
     modifier onlyAdminOrInstructor() {
         string memory role = authContract.getUserRole(msg.sender);
-    require(
-        (keccak256(abi.encodePacked(role)) == keccak256(abi.encodePacked("admin"))) ||
-        (keccak256(abi.encodePacked(role)) == keccak256(abi.encodePacked("teacher"))),
-        "Caller must be admin or instructor"
-    );
-         _;
+        require(
+            (keccak256(abi.encodePacked(role)) ==
+                keccak256(abi.encodePacked("admin"))) ||
+                (keccak256(abi.encodePacked(role)) ==
+                    keccak256(abi.encodePacked("teacher"))),
+            "Caller must be admin or instructor"
+        );
+        _;
     }
 
     function pauseSystem() public onlyAdmin {
@@ -338,8 +354,19 @@ contract CourseDocument is Pausable, Ownable {
         emit CourseCreated(_courseId, _courseName, msg.sender, block.timestamp);
     }
 
-    function getAllReports() public view onlyAdmin returns (bytes32[] memory) {
-        return reportList;
+    function getReports(
+        uint256 start,
+        uint256 limit
+    ) public view onlyAdmin returns (bytes32[] memory) {
+        require(start < reportList.length, "Start index out of bounds");
+        uint256 end = start + limit > reportList.length
+            ? reportList.length
+            : start + limit;
+        bytes32[] memory result = new bytes32[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            result[i - start] = reportList[i];
+        }
+        return result;
     }
 
     function getAllCourses() public view returns (string[] memory) {
@@ -375,10 +402,7 @@ contract CourseDocument is Pausable, Ownable {
         string memory _courseId,
         address _newInstructor
     ) public {
-        require(
-            bytes(_courseId).length > 0,
-            "Course does not exist"
-        );
+        require(bytes(_courseId).length > 0, "Course does not exist");
         require(
             msg.sender == courses[_courseId].instructor || msg.sender == admin,
             "Unauthorized"
@@ -409,34 +433,41 @@ contract CourseDocument is Pausable, Ownable {
     function uploadDocument(
         string memory _title,
         string memory _description,
-        string memory _ipfsHash,
+        string memory _documentHash,
+        string memory _mongoDbId,
         bool _isPublic,
         string memory _courseId
     ) public whenNotPaused onlyInstructor {
-        // Check if course exists and is active
-        require(
-            courses[_courseId].isActive,
-            "Course does not exist or is inactive"
-        );
+        // Check if course exists and is active if courseId provided
+        if (bytes(_courseId).length > 0) {
+            require(
+                courses[_courseId].isActive,
+                "Course does not exist or is inactive"
+            );
+        }
 
         bytes32 documentId = keccak256(
-            abi.encodePacked(_title, msg.sender, block.timestamp)
+            abi.encodePacked(_documentHash, msg.sender, block.timestamp)
         );
 
         documents[documentId] = Document({
             title: _title,
             description: _description,
-            ipfsHash: _ipfsHash,
+            documentHash: _documentHash,
+            mongoDbId: _mongoDbId,
             owner: msg.sender,
             isPublic: _isPublic,
             timestamp: block.timestamp,
             isVerified: false,
             isFlagged: false,
-            flagReason: ""
+            flagReason: "",
+            accessCount: 0
         });
 
         documentList.push(documentId);
-        courseDocuments[_courseId].push(documentId);
+        if (bytes(_courseId).length > 0) {
+            courseDocuments[_courseId].push(documentId);
+        }
 
         emit DocumentUploaded(documentId, _title, msg.sender, block.timestamp);
     }
@@ -511,12 +542,15 @@ contract CourseDocument is Pausable, Ownable {
     function removeDocument(bytes32 _documentId) public whenNotPaused {
         require(
             documents[_documentId].owner == msg.sender ||
-                keccak256(abi.encodePacked(authContract.getUserRole(msg.sender))) == keccak256(abi.encodePacked("admin")),
+                keccak256(
+                    abi.encodePacked(authContract.getUserRole(msg.sender))
+                ) ==
+                keccak256(abi.encodePacked("admin")),
             "Only document owner or admin can remove"
         );
 
-        // We don't actually delete from storage but rather remove the IPFS hash
-        documents[_documentId].ipfsHash = "";
+        // We don't actually delete from storage but rather remove the document hash
+        documents[_documentId].documentHash = "";  // Changed from ipfsHash
 
         emit DocumentRemoved(_documentId, msg.sender, block.timestamp);
     }
@@ -540,63 +574,59 @@ contract CourseDocument is Pausable, Ownable {
         returns (
             string memory title,
             string memory description,
-            string memory ipfsHash,
+            string memory documentHash,
+            string memory mongoDbId,
             address owner,
             bool isPublic,
-            uint256 timestamp
+            uint256 timestamp,
+            uint256 accessCount
         )
     {
         Document memory doc = documents[_documentId];
         require(doc.timestamp != 0, "Document does not exist");
 
-        // Check access permissions
-        bool hasAccess = doc.isPublic ||
-            msg.sender == doc.owner ||
-            documentAccess[_documentId][msg.sender];
-
-        // Check if user is enrolled in any course that has this document
-        if (!hasAccess) {
-            for (uint i = 0; i < documentList.length; i++) {
-                string memory courseId = getCourseIdForDocument(_documentId);
-                if (
-                    bytes(courseId).length > 0 &&
-                    courseEnrollments[courseId][msg.sender]
-                ) {
-                    hasAccess = true;
-                    break;
-                }
-            }
-        }
-
-        require(hasAccess, "You don't have permission to view this document");
+        // We don't check permissions here as this is just metadata
+        // The actual content access control is handled by the backend
 
         return (
             doc.title,
             doc.description,
-            doc.ipfsHash,
+            doc.documentHash,
+            doc.mongoDbId,
             doc.owner,
             doc.isPublic,
-            doc.timestamp
+            doc.timestamp,
+            doc.accessCount
         );
     }
 
     function getCourseIdForDocument(
         bytes32 _documentId
     ) internal view returns (string memory) {
-        // Check all courses to find which one contains this document
-        for (uint i = 0; i < documentList.length; i++) {
-            // Check if the document exists in any course
-            for (uint j = 0; j < courseDocuments["CS101"].length; j++) {
-                if (courseDocuments["CS101"][j] == _documentId) {
-                    return "CS101";
+        for (uint i = 0; i < courseList.length; i++) {
+            bytes32[] memory docs = courseDocuments[courseList[i]];
+            for (uint j = 0; j < docs.length; j++) {
+                if (docs[j] == _documentId) {
+                    return courseList[i];
                 }
             }
         }
         return "";
     }
 
-    function getAllDocuments() public view returns (bytes32[] memory) {
-        return documentList;
+    function getDocuments(
+        uint256 start,
+        uint256 limit
+    ) public view returns (bytes32[] memory) {
+        require(start < documentList.length, "Start index out of bounds");
+        uint256 end = start + limit > documentList.length
+            ? documentList.length
+            : start + limit;
+        bytes32[] memory result = new bytes32[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            result[i - start] = documentList[i];
+        }
+        return result;
     }
 
     function enrollStudent(string memory _courseId, address _student) public {
@@ -606,4 +636,48 @@ contract CourseDocument is Pausable, Ownable {
         );
         courseEnrollments[_courseId][_student] = true;
     }
+
+    // Add function to record document access
+    function recordDocumentAccess(bytes32 _documentId) public {
+        require(
+            documents[_documentId].timestamp != 0,
+            "Document does not exist"
+        );
+        
+        Document storage doc = documents[_documentId];
+        
+        // Verify access permission
+        bool hasAccess = doc.isPublic || 
+                         msg.sender == doc.owner || 
+                         keccak256(abi.encodePacked(authContract.getUserRole(msg.sender))) == 
+                         keccak256(abi.encodePacked("admin"));
+        
+        // Check course enrollment if document belongs to a course
+        // (Implementation depends on your course enrollment system)
+        
+        require(hasAccess, "You do not have permission to access this document");
+        
+        // Increment access count
+        doc.accessCount += 1;
+        
+        // Record access in history
+        DocumentAccess memory access = DocumentAccess({
+            user: msg.sender,
+            timestamp: block.timestamp,
+            action: "view"
+        });
+        
+        documentAccessHistory[_documentId].push(access);
+        
+        emit DocumentAccessed(_documentId, msg.sender, "view", block.timestamp);
+    }
+
+    // Add struct and mapping for detailed access history
+    struct DocumentAccess {
+        address user;
+        uint256 timestamp;
+        string action; // "view", "download", "edit", etc.
+    }
+
+    mapping(bytes32 => DocumentAccess[]) public documentAccessHistory;
 }

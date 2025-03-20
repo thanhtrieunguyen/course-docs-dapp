@@ -27,8 +27,18 @@ const AuthApp = {
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', function (accounts) {
                 console.log('Tài khoản đã thay đổi thành:', accounts[0]);
-                // Tải lại trang để cập nhật trạng thái ứng dụng với tài khoản mới
-                window.location.reload();
+                // Don't reload the page immediately
+                if (AuthApp.account !== accounts[0]) {
+                    AuthApp.account = accounts[0]; 
+                    // Only reload if the user is on a sensitive page
+                    const sensitivePages = ['admin', 'upload'];
+                    const currentPath = window.location.pathname;
+                    const needsReload = sensitivePages.some(page => currentPath.includes(page));
+                    
+                    if (needsReload) {
+                        window.location.reload();
+                    }
+                }
             });
 
             window.ethereum.on('chainChanged', function (chainId) {
@@ -455,28 +465,30 @@ const AuthApp = {
                 if (!this.account) return false;
             }
 
-            // Kiểm tra thông tin từ local storage trước
+            // Make sure contract is initialized
+            if (!this.contracts.Auth) {
+                await this.initContract();
+            }
+
+            // Check localStorage first
             const userAuth = localStorage.getItem('userAuth');
             if (userAuth) {
                 const user = JSON.parse(userAuth);
                 if (user.role === 'admin') {
-                    // Xác minh lại với blockchain
+                    // Verify with blockchain
                     try {
                         const role = await this.contracts.Auth.methods.getUserRole(this.account).call();
                         return role === 'admin';
                     } catch (error) {
                         console.error("Lỗi khi xác thực vai trò với blockchain:", error);
-                        return user.role === 'admin'; // Trả về kết quả từ local storage nếu blockchain gặp lỗi
+                        return false;
                     }
                 }
-                return false;
             }
 
-            // Nếu không có thông tin trong local storage, kiểm tra trực tiếp trên blockchain
-            const role = await this.contracts.Auth.methods.getUserRole(this.account).call();
-            return role === 'admin';
+            return false;
         } catch (error) {
-            console.error("Lỗi khi kiểm tra vai trò quản trị:", error);
+            console.error("Lỗi khi kiểm tra vai trò admin:", error);
             return false;
         }
     },
