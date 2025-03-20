@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý người dùng - Hệ thống quản lý tài liệu khóa học</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+
+<body class="bg-gray-100">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold">Quản lý người dùng - Hệ thống quản lý tài liệu</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="accountAddress" class="text-sm text-gray-600"></span>
+                    <a href="dashboard.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                        Bảng điều khiển
+                    </a>
+                    <button onclick="AuthApp.logout(); window.location.href='../login.html';" id="logoutButton"
+                        class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Menu -->
+    <div class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex space-x-8">
+                <a href="dashboard.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Tổng quan
+                </a>
+                <a href="user-management.html"class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium" >
+                    <i class="fas fa-users mr-2"></i>Quản lý người dùng
+                </a>
+                <a href="role-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                    <i class="fas fa-user-shield mr-2"></i>Phân quyền hệ thống
+                </a>
+                <a href="document-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                    <i class="fas fa-book mr-2"></i>Quản lý tài liệu
+                </a>
+                <a href="cauhinh.html"class="px-3 py-4 text-blue-600 border-b-2 border-blue-600 font-medium" >
+                    <i class="fas fa-cog mr-2"></i>Cấu hình hệ thống
+                </a>
+            </div>
+        </div>
+    </div>
+<!-- Khoa -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Status Message -->
+        <div id="statusMessage" class="mb-4 hidden"></div>
+
+        <!-- User Management Interface -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold">Danh sách Khoa</h2>
+                <div class="flex space-x-2">
+                    <input type="text" id="searchUser" placeholder="Tìm kiếm khoa..."
+                        class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filterRole"
+                        class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tất cả khoa</option>
+                        <option value="">Công nghệ thông tin</option>
+                        <option value="">Kinh tế hàng không</option>
+                        <option value="">Kinh tế</option>
+                        <option value="">Quản trị kinh doanh</option>
+                        <option value="">Ngôn ngữ Anh</option>
+                        <option value="">Du lịch</option>
+
+                    </select>
+                </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="py-2 px-4 border-b text-left">Tên Khoa</th>
+                            <th class="py-2 px-4 border-b text-left">Tên Khoa</th>
+                            <th class="py-2 px-4 border-b text-left">Tên trương Khoa</th>
+                            <th class="py-2 px-4 border-b text-left">Vai trò</th>
+                            <th class="py-2 px-4 border-b text-left">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="">
+                        <tr>
+                            <td colspan="5" class="py-4 px-4 text-center">Đang tải dữ liệu khoa...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Role Management Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-6">Chỉnh sửa thông tin khoa</h2>
+
+            <div id="userEditForm" class="hidden">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="editName" class="block text-sm font-medium text-gray-700 mb-1">Tên Khoa
+                                </label>
+                                <select id="editRole" class="w-full border rounded px-3 py-2">
+                                    <option value="admin">Quản trị viên</option>
+                                    <option value="teacher">Giảng viên</option>
+                                    <option value="student">Học viên</option>
+                                </select>
+                           
+                        </div>
+                        <div>
+                            <label for="editEmail" class="block text-sm font-medium text-gray-700 mb-1">Tên trưởng khoa</label>
+                            <select id="editRole" class="w-full border rounded px-3 py-2">
+                                <option value="admin">Quản trị viên</option>
+                                <option value="teacher">Giảng viên</option>
+                                <option value="student">Học viên</option>
+                            </select>
+                        </div>
+                    </div>
+
+                  
+
+                    <div class="mb-6">
+                        <label for="editRole" class="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
+                        <select id="editRole" class="w-full border rounded px-3 py-2">
+                            <option value="admin">Quản trị viên</option>
+                            <option value="teacher">Giảng viên</option>
+                            <option value="student">Học viên</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" id="cancelEditBtn"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
+                            Hủy
+                        </button>
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
+                            Cập nhật
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="noUserSelected" class="text-center py-10">
+                <p class="text-gray-500">Chọn một khoa từ danh sách để chỉnh sửa</p>
+            </div>
+        </div>
+        
+        
+    </div>
+
+<!-- Môn học -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Status Message -->
+        <div id="statusMessage" class="mb-4 hidden"></div>
+
+        <!-- User Management Interface -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold">Danh sách Môn học</h2>
+                <div class="flex space-x-2">
+                    <input type="text" id="searchUser" placeholder="Tìm kiếm môn học..."
+                        class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filterRole"
+                        class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tất cả khoa</option>
+                        <option value="">Công nghệ thông tin</option>
+                        <option value="">Kinh tế hàng không</option>
+                        <option value="">Kinh tế</option>
+                        <option value="">Quản trị kinh doanh</option>
+                        <option value="">Ngôn ngữ Anh</option>
+                        <option value="">Du lịch</option>
+
+                    </select>
+                    <select id="filterRole"
+                    class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Môn học</option>
+                    <option value="">Công nghệ thông tin</option>
+                    <option value="">Kinh tế hàng không</option>
+                    <option value="">Kinh tế</option>
+                    <option value="">Quản trị kinh doanh</option>
+                    <option value="">Ngôn ngữ Anh</option>
+                    <option value="">Du lịch</option>
+
+                </select>
+                </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="py-2 px-4 border-b text-left">Tên Khoa</th>
+                            <th class="py-2 px-4 border-b text-left">Tên Môn học</th>
+                            <th class="py-2 px-4 border-b text-left">Tài liệu</th>
+                            <th class="py-2 px-4 border-b text-left">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="">
+                        <tr>
+                            <td colspan="5" class="py-4 px-4 text-center">Đang tải dữ liệu môn học...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Role Management Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-6">Chỉnh sửa thông tin môn học</h2>
+
+            <div id="userEditForm" class="hidden">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="editName" class="block text-sm font-medium text-gray-700 mb-1">Tên Khoa
+                                </label>
+                                <select id="editRole" class="w-full border rounded px-3 py-2">
+                                    <option value="admin">Quản trị viên</option>
+                                    <option value="teacher">Giảng viên</option>
+                                    <option value="student">Học viên</option>
+                                </select>
+                           
+                        </div>
+                        <div>
+                            <label for="editEmail" class="block text-sm font-medium text-gray-700 mb-1">Tên trưởng khoa</label>
+                            <select id="editRole" class="w-full border rounded px-3 py-2">
+                                <option value="admin">Quản trị viên</option>
+                                <option value="teacher">Giảng viên</option>
+                                <option value="student">Học viên</option>
+                            </select>
+                        </div>
+                    </div>
+
+                  
+
+                    <div class="mb-6">
+                        <label for="editRole" class="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
+                        <select id="editRole" class="w-full border rounded px-3 py-2">
+                            <option value="admin">Quản trị viên</option>
+                            <option value="teacher">Giảng viên</option>
+                            <option value="student">Học viên</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" id="cancelEditBtn"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
+                            Hủy
+                        </button>
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
+                            Cập nhật
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="noUserSelected" class="text-center py-10">
+                <p class="text-gray-500">Chọn một môn học từ danh sách để chỉnh sửa</p>
+            </div>
+        </div>
+        
+        
+    </div>
+   
+</div>
+
+    
+
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin/user-management.js"></script>
+</body>
+
+</html>
