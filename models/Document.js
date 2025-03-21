@@ -55,4 +55,12 @@ documentSchema.index({ owner: 1 });
 documentSchema.index({ courseId: 1 });
 documentSchema.index({ title: 'text', description: 'text' }); // Text search index
 
+// Create compound index for faster queries including isDeleted
+documentSchema.index({ owner: 1, courseId: 1, status: 1, isDeleted: 1 });
+
+// Add a static method to help with queries
+documentSchema.statics.notDeleted = function() {
+    return this.where({ isDeleted: { $ne: true } });
+};
+
 module.exports = mongoose.model('Document', documentSchema);

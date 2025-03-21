@@ -166,152 +166,114 @@ const DocumentManagement = {
     },
     
     loadDocuments: async function() {
-        console.log("Starting document loading process...");
         try {
             const tbody = document.getElementById('documentTableBody');
-            tbody.innerHTML = '<tr><td colspan="6" class="py-4 px-4 text-center">Đang tải dữ liệu tài liệu...</td></tr>';
-
-            // Get token from localStorage
-            const userAuth = localStorage.getItem('userAuth');
-            if (!userAuth) {
-                throw new Error('No authentication token found');
-            }
-            const auth = JSON.parse(userAuth);
-            
-            // Get document count from blockchain
-            console.log("Fetching document count from blockchain...");
-            const documentCount = await this.contracts.courseDocument.methods.getDocumentCount().call();
-            console.log(`Document count: ${documentCount}`);
-
-            if (parseInt(documentCount) === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="py-4 px-4 text-center">Không có tài liệu nào</td></tr>';
+            if (!tbody) {
+                console.error('Table body element not found');
                 return;
             }
 
-            // Get all document IDs
-            console.log(`Fetching ${documentCount} document IDs...`);
-            const documentIds = await this.contracts.courseDocument.methods.getDocuments(0, parseInt(documentCount)).call();
-            console.log(`Received ${documentIds.length} document IDs:`, documentIds);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Đang tải dữ liệu...</td></tr>';
 
-            // Clear documents array
-            this.documents = [];
-            let tableRows = '';
+            // Lấy và kiểm tra token
+            const userAuth = localStorage.getItem('userAuth');
+            if (!userAuth) {
+                this.handleAuthError();
+                return;
+            }
 
-            // Fetch document details for each ID
-            for (let i = 0; i < documentIds.length; i++) {
-                const docId = documentIds[i];
-                try {
-                    console.log(`Fetching details for document ID ${docId} (${i+1}/${documentIds.length})...`);
-                    const doc = await this.contracts.courseDocument.methods.documents(docId).call();
+            const auth = JSON.parse(userAuth);
+            if (!auth.token || !auth.timestamp) {
+                this.handleAuthError();
+                return;
+            }
 
-                    // Skip deleted documents
-                    if (!doc.documentHash) {
-                        console.log(`Document ${docId} has empty hash, skipping...`);
-                        continue;
-                    }
+            // Kiểm tra thời hạn token (24h)
+            const now = Date.now();
+            const tokenAge = now - auth.timestamp;
+            if (tokenAge > 24 * 60 * 60 * 1000) { // 24 hours
+                this.handleAuthError('Token đã hết hạn');
+                return;
+            }
 
-                    // Fetch additional info from MongoDB
-                    let mongoDoc = null;
-                    try {
-                        const response = await fetch(`/api/document/${docId}`, {
-                            method: 'GET',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${auth.token}`
-                            }
-                        });
+            // Gọi API với token
+            const response = await fetch('/api/admin/documents', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${auth.token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.success) {
-                                mongoDoc = data.document;
-                            }
-                        }
-                    } catch (err) {
-                        console.warn('Could not fetch additional document info:', err);
-                    }
+            if (response.status === 403) {
+                this.handleAuthError('Token không hợp lệ hoặc đã hết hạn');
+                return;
+            }
 
-                    // Convert BigInt values to regular numbers
-                    const timestamp = Number(doc.timestamp);
-                    const accessCount = Number(doc.accessCount || 0);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Lỗi kết nối với server');
+            }
 
-                    // Create document object
-                    const document = {
-                        id: docId,
-                        title: doc.title,
-                        description: doc.description,
-                        owner: doc.owner,
-                        documentHash: doc.documentHash,
-                        ipfsHash: doc.ipfsHash || mongoDoc?.ipfsHash,
-                        courseId: doc.courseId,
-                        timestamp: timestamp,
-                        accessCount: accessCount,
-                        isPublic: doc.isPublic,
-                        isVerified: doc.isVerified,
-                        isFlagged: doc.isFlagged
-                    };
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Lỗi khi tải dữ liệu');
+            }
 
-                    this.documents.push(document);
+            this.documents = result.documents;
 
-                    // Format date for display
-                    const uploadDate = new Date(timestamp * 1000).toLocaleDateString('vi-VN');
-
-                    // Add table row
-                    tableRows += `
-                    <tr data-document-id="${docId}">
-                        <td class="py-3 px-4 border-b">${doc.title}</td>
-                        <td class="py-3 px-4 border-b">${doc.owner}</td>
-                        <td class="py-3 px-4 border-b">${uploadDate}</td>
-                        <td class="py-3 px-4 border-b">
-                            <div class="flex flex-wrap gap-1">
-                                ${doc.isVerified ? 
-                                    '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Đã xác thực</span>' : 
-                                    '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">Chưa xác thực</span>'
-                                }
-                                ${doc.isPublic ? 
-                                    '<span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">Công khai</span>' : 
-                                    '<span class="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">Riêng tư</span>'
-                                }
-                                ${doc.isFlagged ? 
-                                    '<span class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">Đã gắn cờ</span>' : 
-                                    ''
-                                }
-                            </div>
-                        </td>
-                        <td class="py-3 px-4 border-b">${doc.courseId || 'Không có'}</td>
-                        <td class="py-3 px-4 border-b">
-                            <button class="view-document-btn bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 mr-2">
-                                <i class="fas fa-eye"></i> Xem
+            // Render documents table
+            const tableRows = this.documents.map(doc => {
+                return `
+                    <tr data-document-id="${doc.id}">
+                        <td class="p-2">${doc.title}</td>
+                        <td class="p-2">${doc.ownerName}</td>
+                        <td class="p-2">${doc.isPublic ? 'Công khai' : 'Riêng tư'}</td>
+                        <td class="p-2">${new Date(doc.uploadDate).toLocaleDateString()}</td>
+                        <td class="p-2 flex space-x-2">
+                            <button class="view-document-btn text-blue-600 hover:text-blue-800">
+                                Xem
                             </button>
-                            <button class="edit-document-btn bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 mr-2">
-                                <i class="fas fa-edit"></i> Chi tiết
+                            <button class="edit-document-btn text-yellow-600 hover:text-yellow-800 mx-2">
+                                Sửa
                             </button>
-                            <button class="delete-document-btn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
-                                <i class="fas fa-trash"></i> Xóa
+                            <button class="delete-document-btn text-red-600 hover:text-red-800">
+                                Xóa
                             </button>
                         </td>
                     </tr>
-                    `;
-                } catch (error) {
-                    console.error(`Error processing document ${docId}:`, error);
-                    continue;
-                }
-            }
+                `;
+            }).join('');
 
-            console.log(`Successfully processed ${this.documents.length} documents out of ${documentIds.length} IDs`);
-
-            if (this.documents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="py-4 px-4 text-center">Không tìm thấy tài liệu hợp lệ nào</td></tr>';
-            } else {
-                tbody.innerHTML = tableRows;
-            }
+            tbody.innerHTML = tableRows || '<tr><td colspan="5" class="text-center p-4">Không có tài liệu nào</td></tr>';
 
         } catch (error) {
             console.error("Error loading documents:", error);
-            document.getElementById('documentTableBody').innerHTML = 
-                `<tr><td colspan="6" class="py-4 px-4 text-center text-red-500">
-                Lỗi khi tải dữ liệu: ${error.message}</td></tr>`;
+            const tbody = document.getElementById('documentTableBody');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">
+                    Lỗi khi tải danh sách tài liệu: ${error.message}</td></tr>`;
+            }
+            this.showStatus('error', 'Lỗi khi tải danh sách tài liệu: ' + error.message);
         }
+    },
+
+    handleAuthError: function(message = 'Phiên đăng nhập đã hết hạn') {
+        // Xóa thông tin đăng nhập
+        localStorage.removeItem('userAuth');
+        localStorage.removeItem('token');
+        
+        // Hiển thị thông báo
+        this.showStatus('error', message);
+        
+        // Lưu URL hiện tại để redirect sau khi đăng nhập lại
+        sessionStorage.setItem('redirectAfterLogin', window.location.href);
+        
+        // Chuyển hướng về trang đăng nhập sau 2 giây
+        setTimeout(() => {
+            window.location.href = '../login.html';
+        }, 2000);
     },
     
     getCourseNameById: function(courseId) {
@@ -322,19 +284,18 @@ const DocumentManagement = {
     
     setupEventListeners: function() {
         // Document table row actions
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', (e) => {
+            const row = e.target.closest('tr');
+            if (!row || !row.dataset.documentId) return;
+            
+            const documentId = row.dataset.documentId;
+            
             if (e.target.closest('.view-document-btn')) {
-                const row = e.target.closest('tr');
-                const documentId = row.dataset.documentId;
-                DocumentManagement.viewDocument(documentId);
+                this.viewDocument(documentId);
             } else if (e.target.closest('.edit-document-btn')) {
-                const row = e.target.closest('tr');
-                const documentId = row.dataset.documentId;
-                DocumentManagement.editDocument(documentId);
+                this.editDocument(documentId);
             } else if (e.target.closest('.delete-document-btn')) {
-                const row = e.target.closest('tr');
-                const documentId = row.dataset.documentId;
-                DocumentManagement.confirmDeleteDocument(documentId);
+                this.confirmDeleteDocument(documentId);
             }
         });
         
@@ -406,41 +367,30 @@ const DocumentManagement = {
         });
     },
     
-    viewDocument: function(documentId) {
-        const doc = this.documents.find(d => d.id === documentId);
-        if (!doc) {
-            this.showStatus('error', 'Không tìm thấy tài liệu');
-            return;
-        }
-        
-        // If IPFS hash exists, open it in a new window
-        if (doc.ipfsHash) {
-            window.open(`https://ipfs.io/ipfs/${doc.ipfsHash}`, '_blank');
-        } else {
-            // Otherwise try to fetch from MongoDB API
-            this.viewDocumentFromMongoDB(documentId);
-        }
-    },
-    
-    viewDocumentFromMongoDB: async function(documentId) {
+    viewDocument: async function(documentId) {
         try {
-            const response = await fetch(`/api/document/${documentId}/content`, {
+            const userAuth = localStorage.getItem('userAuth');
+            if (!userAuth) throw new Error('Không tìm thấy thông tin xác thực');
+            const auth = JSON.parse(userAuth);
+
+            // Check if document exists first
+            const doc = this.documents.find(d => d.id === documentId);
+            if (!doc) throw new Error('Không tìm thấy tài liệu');
+
+            const response = await fetch(`/api/documents/${documentId}/view`, {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${auth.token}`
                 }
             });
-            
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success && result.url) {
-                    window.open(result.url, '_blank');
-                } else {
-                    throw new Error(result.error || 'Không thể tải tài liệu');
-                }
-            } else {
-                throw new Error('Lỗi khi tải tài liệu');
+
+            if (!response.ok) {
+                throw new Error('Không thể tải tài liệu');
             }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
         } catch (error) {
             console.error('Error viewing document:', error);
             this.showStatus('error', 'Không thể xem tài liệu: ' + error.message);
@@ -498,69 +448,37 @@ const DocumentManagement = {
     updateDocument: async function() {
         try {
             if (!this.selectedDocument) {
-                this.showStatus('error', 'Không có tài liệu nào được chọn');
-                return;
+                throw new Error('Không có tài liệu nào được chọn');
             }
-            
+
+            const userAuth = localStorage.getItem('userAuth');
+            if (!userAuth) throw new Error('Không tìm thấy thông tin xác thực');
+            const auth = JSON.parse(userAuth);
+
             const docId = this.selectedDocument.id;
-            const title = document.getElementById('editTitle').value;
-            const description = document.getElementById('editDescription').value;
-            const courseId = document.getElementById('editCourse').value;
-            const isPublic = document.getElementById('editIsPublic').checked;
-            const isVerified = document.getElementById('editIsVerified').checked;
-            
-            // Validate inputs
-            if (!title || !description) {
-                this.showStatus('error', 'Tiêu đề và mô tả không được để trống');
-                return;
-            }
-            
-            // Check if document verification status changed
-            if (isVerified !== this.selectedDocument.isVerified) {
-                if (isVerified) {
-                    // Verify document on blockchain
-                    await this.contracts.courseDocument.methods.verifyDocument(docId)
-                        .send({ from: this.account });
-                } else {
-                    // Currently no way to un-verify, so warn and exit
-                    this.showStatus('warning', 'Không thể bỏ xác thực tài liệu đã được xác thực');
-                    document.getElementById('editIsVerified').checked = true;
-                    return;
-                }
-            }
-            
-            // Update document metadata on MongoDB
-            const response = await fetch(`/api/admin/update-document`, {
-                method: 'POST',
+            const formData = new FormData();
+            formData.append('title', document.getElementById('editTitle').value);
+            formData.append('description', document.getElementById('editDescription').value);
+            formData.append('courseId', document.getElementById('editCourse').value);
+            formData.append('isPublic', document.getElementById('editIsPublic').checked);
+
+            const response = await fetch(`/api/documents/${docId}`, {
+                method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${auth.token}`
                 },
-                body: JSON.stringify({
-                    documentId: docId,
-                    title: title,
-                    description: description,
-                    courseId: courseId,
-                    isPublic: isPublic
-                })
+                body: formData
             });
-            
+
             if (!response.ok) {
-                throw new Error('Lỗi khi cập nhật tài liệu');
+                const error = await response.json();
+                throw new Error(error.message || 'Không thể cập nhật tài liệu');
             }
-            
-            const result = await response.json();
-            if (!result.success) {
-                throw new Error(result.error || 'Không thể cập nhật tài liệu');
-            }
-            
-            this.showStatus('success', 'Cập nhật tài liệu thành công');
-            
-            // Reload documents
+
             await this.loadDocuments();
-            
-            // Hide edit form
             this.cancelEdit();
-            
+            this.showStatus('success', 'Cập nhật tài liệu thành công');
+
         } catch (error) {
             console.error('Error updating document:', error);
             this.showStatus('error', 'Lỗi khi cập nhật tài liệu: ' + error.message);
@@ -631,31 +549,32 @@ const DocumentManagement = {
     
     deleteDocument: async function(documentId) {
         try {
-            // Call removeDocument on blockchain
-            await this.contracts.courseDocument.methods.removeDocument(documentId)
-                .send({ from: this.account });
-                
-            // Optional: Mark as deleted on MongoDB
-            const response = await fetch(`/api/admin/delete-document`, {
-                method: 'POST',
+            const userAuth = localStorage.getItem('userAuth');
+            if (!userAuth) throw new Error('Không tìm thấy thông tin xác thực');
+            const auth = JSON.parse(userAuth);
+
+            const response = await fetch(`/api/documents/${documentId}`, {
+                method: 'DELETE',
                 headers: {
+                    'Authorization': `Bearer ${auth.token}`,
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    documentId: documentId
-                })
+                }
             });
-            
-            this.showStatus('success', 'Xóa tài liệu thành công');
-            
-            // If we were editing this document, clear the form
-            if (this.selectedDocument && this.selectedDocument.id === documentId) {
-                this.cancelEdit();
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Không thể xóa tài liệu');
             }
+
+            // Remove from local array
+            this.documents = this.documents.filter(doc => doc.id !== documentId);
             
-            // Reload documents
-            await this.loadDocuments();
-            
+            // Remove row from table
+            const row = document.querySelector(`tr[data-document-id="${documentId}"]`);
+            if (row) row.remove();
+
+            this.showStatus('success', 'Xóa tài liệu thành công');
+
         } catch (error) {
             console.error('Error deleting document:', error);
             this.showStatus('error', 'Lỗi khi xóa tài liệu: ' + error.message);
