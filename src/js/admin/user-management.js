@@ -100,73 +100,68 @@ const UserManagement = {
         try {
             const tbody = document.getElementById('userTableBody');
             tbody.innerHTML = '<tr><td colspan="5" class="py-4 px-4 text-center">Đang tải dữ liệu người dùng...</td></tr>';
+
+            // Get users from API instead of blockchain
+            const userAuth = localStorage.getItem('userAuth');
+            if (!userAuth) {
+                throw new Error('Phiên đăng nhập không hợp lệ');
+            }
+
+            const { token } = JSON.parse(userAuth);
+            const response = await fetch('/api/admin/users', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Không thể tải danh sách người dùng');
+            }
+
+            UserManagement.users = result.users;
             
-            // Get user count from blockchain
-            const userCount = await UserManagement.contracts.auth.methods.getUserCount().call();
-            console.log(`Found ${userCount} users`);
-            
-            if (userCount == 0) {
+            if (UserManagement.users.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="py-4 px-4 text-center">Không tìm thấy người dùng</td></tr>';
                 return;
             }
-            
-            // Fetch users from blockchain
-            UserManagement.users = [];
+
             let tableRows = '';
-            
-            for (let i = 0; i < userCount; i++) {
-                // Get user address at index
-                const address = await UserManagement.contracts.auth.methods.getUserAtIndex(i).call();
-                
-                // Get user details
-                const user = await UserManagement.contracts.auth.methods.users(address).call();
-                const role = await UserManagement.contracts.auth.methods.getUserRole(address).call();
-                
-                // Add user to array
-                const userObj = {
-                    address: address,
-                    name: user.name,
-                    email: user.email,
-                    role: role
-                };
-                
-                UserManagement.users.push(userObj);
-                
-                // Create table row
+            for (const user of UserManagement.users) {
                 tableRows += `
-                <tr data-address="${address}" class="hover:bg-gray-50 cursor-pointer user-row">
+                <tr data-address="${user.address}" class="hover:bg-gray-50 cursor-pointer user-row">
                     <td class="py-3 px-4 border-b">${user.name}</td>
                     <td class="py-3 px-4 border-b">${user.email}</td>
-                    <td class="py-3 px-4 border-b">${address.substr(0, 8)}...${address.substr(-6)}</td>
+                    <td class="py-3 px-4 border-b">${user.address.substr(0, 8)}...${user.address.substr(-6)}</td>
                     <td class="py-3 px-4 border-b">
                         <span class="px-2 py-1 rounded text-xs ${
-                            role === 'admin' ? 'bg-red-100 text-red-800' : 
-                            role === 'teacher' ? 'bg-blue-100 text-blue-800' : 
+                            user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                            user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
                             'bg-green-100 text-green-800'
                         }">
-                            ${
-                                role === 'admin' ? 'Quản trị viên' : 
-                                role === 'teacher' ? 'Giảng viên' : 
-                                'Học viên'
+                            ${user.role === 'admin' ? 'Quản trị viên' :
+                              user.role === 'teacher' ? 'Giảng viên' :
+                              'Học viên'
                             }
                         </span>
                     </td>
-                    <td class="py-3 px-4 border-b">
-                        <button class="edit-user-btn bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 mr-2">
-                            <i class="fas fa-edit"></i> Sửa
+                    <td class="py-3 px-4 border-b text-right">
+                        <button class="edit-user-btn text-blue-600 hover:text-blue-800 mr-2">
+                            <i class="fas fa-edit"></i>
                         </button>
-                        ${role !== 'admin' ? `
-                        <button class="delete-user-btn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
-                            <i class="fas fa-trash"></i> Xóa
+                        <button class="delete-user-btn text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
                         </button>
-                        ` : ''}
                     </td>
-                </tr>
-                `;
+                </tr>`;
             }
             
             tbody.innerHTML = tableRows;
-            
+
         } catch (error) {
             console.error("Error loading users:", error);
             document.getElementById('userTableBody').innerHTML = 

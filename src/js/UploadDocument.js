@@ -105,6 +105,7 @@ const UploadDocument = {
             await this.initContract();
             await this.setupEventListeners();
             await this.loadCourses();
+            await this.loadDocuments();
             return true;
         } catch (error) {
             console.error("Error initializing UploadDocument:", error);
@@ -173,14 +174,19 @@ const UploadDocument = {
 
     setupEventListeners: function() {
         const uploadForm = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('documentFile');
+    
         if (uploadForm) {
             uploadForm.addEventListener('submit', this.handleUpload.bind(this));
+        } else {
+            console.error("Không tìm thấy biểu mẫu tải lên trong DOM");
         }
-
-        // Add event listener for file selection to calculate hash
-        const fileInput = document.getElementById('documentFile');
+    
         if (fileInput) {
             fileInput.addEventListener('change', this.calculateFileHash.bind(this));
+            console.log("Đã thêm listener cho input file thành công");
+        } else {
+            console.error("Không tìm thấy phần tử input file trong DOM");
         }
     },
 
@@ -188,92 +194,100 @@ const UploadDocument = {
         try {
             const file = event.target.files[0];
             if (!file) return;
-
+    
             const buffer = await file.arrayBuffer();
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             
-            // Store the hash in a hidden input field
-            const hashField = document.getElementById('contentHash');
-            if (!hashField) {
-                // Create the field if it doesn't exist
-                const hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.id = 'contentHash';
-                hiddenInput.name = 'contentHash';
-                hiddenInput.value = hashHex;
-                document.getElementById('uploadForm').appendChild(hiddenInput);
-            } else {
-                hashField.value = hashHex;
-            }
-            
+            this.fileHash = hashHex; // Lưu trữ hash trong thuộc tính
             console.log("File hash calculated:", hashHex);
             return hashHex;
         } catch (error) {
-            console.error("Error calculating file hash:", error);
+            console.error("Lỗi tính toán hash file:", error);
             return null;
         }
     },
-
     handleUpload: async function(event) {
         event.preventDefault();
-        console.log("Handling upload submission");
-
-        // Check if contract is initialized
+        console.log("Đang xử lý việc gửi biểu mẫu tải lên");
+    
         if (!this.contracts.CourseDocument) {
             alert("Hệ thống blockchain chưa sẵn sàng. Vui lòng thử lại sau.");
             return;
         }
+    
+        // Get all required form elements
+        const elements = {
+            uploadButton: document.getElementById('uploadButton'),
+            titleInput: document.getElementById('title'),
+            descriptionInput: document.getElementById('description'),
+            fileInput: document.getElementById('documentFile'),
+            isPublicInput: document.getElementById('isPublic'),
+            facultyInput: document.getElementById('facultyId'),
+            subjectInput: document.getElementById('subjectId')
+        };
 
-        // Show loading indicator
-        const uploadButton = document.getElementById('uploadButton');
-        const originalButtonText = uploadButton.innerHTML;
-        uploadButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Đang tải lên...';
-        uploadButton.disabled = true;
+        // Check if any element is missing
+        const missingElements = Object.entries(elements)
+            .filter(([key, element]) => !element)
+            .map(([key]) => key);
 
+        if (missingElements.length > 0) {
+            const error = `Không tìm thấy các phần tử form: ${missingElements.join(', ')}`;
+            console.error(error);
+            alert(error);
+            return;
+        }
+
+        const originalButtonText = elements.uploadButton.innerHTML;
+        elements.uploadButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Đang tải lên...';
+        elements.uploadButton.disabled = true;
+    
         try {
-            const title = document.getElementById('title').value.trim();
-            const description = document.getElementById('description').value.trim();
-            const file = document.getElementById('documentFile').files[0];
-            const isPublic = document.getElementById('isPublic').checked;
-            const courseId = document.getElementById('courseId').value.trim();
-            const contentHash = document.getElementById('contentHash')?.value;
-
-            // Validate inputs
-            if (!title || !description || !file) {
-                alert("Vui lòng điền đầy đủ thông tin và chọn file.");
-                uploadButton.innerHTML = originalButtonText;
-                uploadButton.disabled = false;
-                return;
+            const formData = {
+                title: elements.titleInput.value.trim(),
+                description: elements.descriptionInput.value.trim(),
+                file: elements.fileInput.files[0],
+                isPublic: elements.isPublicInput.checked,
+                facultyId: elements.facultyInput.value.trim(),
+                subjectId: elements.subjectInput.value.trim()
+            };
+    
+            if (!formData.title || !formData.description || !formData.file || !this.fileHash) {
+                throw new Error("Vui lòng điền đầy đủ thông tin và chọn file để tải lên");
             }
-
-            // Upload directly to MongoDB with document content
-            const uploadResult = await this.uploadToMongoDB(file, title, description, isPublic, courseId, contentHash);
-
-            // Then register metadata on blockchain
+    
+            const uploadResult = await this.uploadToMongoDB(
+                formData.file, 
+                formData.title, 
+                formData.description, 
+                formData.isPublic, 
+                formData.facultyId,
+                formData.subjectId,
+                this.fileHash
+            );
+    
             if (uploadResult.success) {
                 await this.registerDocumentOnBlockchain(
-                    title, 
-                    description, 
-                    uploadResult.documentHash, // Use the hash returned from MongoDB
-                    isPublic, 
-                    courseId,
-                    uploadResult.documentId // Pass the MongoDB document ID
+                    formData.title, 
+                    formData.description, 
+                    uploadResult.documentHash,
+                    formData.isPublic, 
+                    formData.facultyId,
+                    uploadResult.documentId
                 );
-                
                 alert("Tài liệu đã được tải lên thành công!");
-                window.location.reload();
+                await this.loadDocuments();
             } else {
-                alert(`Lỗi khi lưu tài liệu: ${uploadResult.error}`);
+                throw new Error(uploadResult.error || "Lỗi khi tải lên tài liệu");
             }
         } catch (error) {
-            console.error("Upload error:", error);
+            console.error("Lỗi tải lên:", error);
             alert("Có lỗi xảy ra khi tải lên tài liệu: " + error.message);
         } finally {
-            // Reset button state
-            uploadButton.innerHTML = originalButtonText;
-            uploadButton.disabled = false;
+            elements.uploadButton.innerHTML = originalButtonText;
+            elements.uploadButton.disabled = false;
         }
     },
 
@@ -377,6 +391,68 @@ const UploadDocument = {
             }
         } catch (error) {
             console.error("Error loading courses:", error);
+        }
+    },
+
+    loadDocuments: async function() {
+        try {
+            const documentList = document.getElementById('documentList');
+            if (!documentList) return;
+
+            // Show loading state
+            documentList.innerHTML = '<p class="text-center text-gray-500">Đang tải danh sách tài liệu...</p>';
+
+            const token = localStorage.getItem('token');
+            if (!token) throw new Error('No auth token found');
+
+            const response = await fetch('http://localhost:3000/api/my-documents', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch documents');
+            
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error);
+
+            if (data.documents.length === 0) {
+                documentList.innerHTML = '<p class="text-center text-gray-500">Chưa có tài liệu nào</p>';
+                return;
+            }
+
+            // Render documents
+            documentList.innerHTML = data.documents.map(doc => `
+                <div class="border rounded p-4 mb-4 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-medium">${doc.title}</h3>
+                            <p class="text-sm text-gray-600">${doc.description}</p>
+                            <div class="mt-2 text-xs text-gray-500">
+                                <span>${new Date(doc.uploadDate).toLocaleDateString()}</span>
+                                <span class="mx-2">•</span>
+                                <span>${doc.fileType}</span>
+                                <span class="mx-2">•</span>
+                                <span>${doc.isPublic ? 'Công khai' : 'Riêng tư'}</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="window.open('/api/document/${doc.documentId}', '_blank')" 
+                                    class="text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Error loading documents:', error);
+            documentList.innerHTML = `
+                <div class="text-red-500 text-center">
+                    Lỗi tải danh sách tài liệu: ${error.message}
+                </div>
+            `;
         }
     }
 };
