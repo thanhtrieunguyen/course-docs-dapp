@@ -3,6 +3,8 @@ const AuthApp = {
     contracts: {},
     account: null,
     loading: false,
+    lastAccountChange: 0, // Thêm biến để debounce sự kiện accountsChanged
+    lastChainChange: 0,   // Thêm biến để debounce sự kiện chainChanged
 
     debugContract: async function () {
         if (!this.contracts.Auth) {
@@ -13,7 +15,6 @@ const AuthApp = {
         console.log("Contract address:", this.contracts.Auth._address);
         console.log("Available methods:", Object.keys(this.contracts.Auth.methods));
 
-        // Try to call a simple view function
         try {
             const userCount = await this.contracts.Auth.methods.getUserCount().call();
             console.log("User count:", userCount);
@@ -23,25 +24,38 @@ const AuthApp = {
     },
 
     init: async function () {
-        // Thêm listener cho sự thay đổi tài khoản MetaMask
         if (window.ethereum) {
-            window.ethereum.on('accountsChanged', function (accounts) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                const now = Date.now();
+                // Debounce: Chỉ xử lý nếu đã qua 1 giây kể từ lần xử lý trước
+                if (now - this.lastAccountChange < 1000) {
+                    console.log("Bỏ qua sự kiện accountsChanged do xử lý quá nhanh");
+                    return;
+                }
+                this.lastAccountChange = now;
+
                 console.log('Tài khoản đã thay đổi thành:', accounts[0]);
-                // Don't reload the page immediately
-                if (AuthApp.account !== accounts[0]) {
-                    AuthApp.account = accounts[0]; 
-                    // Only reload if the user is on a sensitive page
+                if (this.account !== accounts[0]) {
+                    this.account = accounts[0];
                     const sensitivePages = ['admin', 'upload'];
                     const currentPath = window.location.pathname;
                     const needsReload = sensitivePages.some(page => currentPath.includes(page));
-                    
+
                     if (needsReload) {
                         window.location.reload();
                     }
                 }
             });
 
-            window.ethereum.on('chainChanged', function (chainId) {
+            window.ethereum.on('chainChanged', (chainId) => {
+                const now = Date.now();
+                // Debounce: Chỉ xử lý nếu đã qua 1 giây kể từ lần xử lý trước
+                if (now - this.lastChainChange < 1000) {
+                    console.log("Bỏ qua sự kiện chainChanged do xử lý quá nhanh");
+                    return;
+                }
+                this.lastChainChange = now;
+
                 console.log('Mạng blockchain đã thay đổi. Đang tải lại trang...');
                 window.location.reload();
             });
@@ -51,38 +65,34 @@ const AuthApp = {
     },
 
     initWeb3: async function () {
-        if (window.ethereum) {
-            this.web3Provider = window.ethereum;
-            try {
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-            } catch (error) {
-                console.error("User denied account access");
-                return false;
+        try {
+            if (window.ethereum) {
+                this.web3Provider = window.ethereum;
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                } catch (error) {
+                    console.error("Người dùng từ chối truy cập tài khoản:", error);
+                    return false;
+                }
+            } else if (window.web3) {
+                this.web3Provider = window.web3.currentProvider;
+            } else {
+                this.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
             }
-        } else if (window.web3) {
-            this.web3Provider = window.web3.currentProvider;
-        } else {
-            // Fallback provider (e.g. Ganache)
-            this.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
+            this.web3 = new Web3(this.web3Provider);
+            return await this.initContract();
+        } catch (error) {
+            console.error("Lỗi khởi tạo Web3:", error);
+            return false;
         }
-        // IMPORTANT: instantiate Web3 using the provider
-        this.web3 = new Web3(this.web3Provider);
-        return await this.initContract();
     },
 
     initContract: async function () {
         try {
-            // Tạo các đối tượng contract empty
             this.contracts = {};
-
-            // Tải ABI của contract Auth
             const response = await fetch('../contracts/Auth.json');
             const authArtifact = await response.json();
-
-            // Get the network ID
             const networkId = await this.web3.eth.net.getId();
-
-            // Get the deployed network info from the artifact
             const deployedNetwork = authArtifact.networks[networkId];
 
             if (!deployedNetwork) {
@@ -90,7 +100,6 @@ const AuthApp = {
                 return false;
             }
 
-            // Create the contract instance using the ABI and address
             this.contracts.Auth = new this.web3.eth.Contract(
                 authArtifact.abi,
                 deployedNetwork.address
@@ -106,21 +115,16 @@ const AuthApp = {
 
     loadContract: async function () {
         try {
-            // Load Auth Contract ABI
             const response = await fetch('../contracts/Auth.json');
             const authArtifact = await response.json();
-
-            // Get the network ID
             const networkId = await AuthApp.web3.eth.net.getId();
             console.log('Network ID:', networkId);
 
-            // Get the deployed contract address for this network
             const deployedNetwork = authArtifact.networks[networkId];
             if (!deployedNetwork) {
                 throw new Error(`Contract not deployed on network ID: ${networkId}. Please check your MetaMask network.`);
             }
 
-            // Create the contract instance
             AuthApp.contracts.Auth = new AuthApp.web3.eth.Contract(
                 authArtifact.abi,
                 deployedNetwork.address
@@ -134,16 +138,12 @@ const AuthApp = {
         }
     },
 
-    // Connect MetaMask function
     connectMetaMask: async function () {
         if (typeof window.ethereum !== 'undefined') {
             try {
-                // This will open the MetaMask popup
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 AuthApp.account = accounts[0];
                 console.log("Connected to MetaMask with account:", AuthApp.account);
-
-                // Check if user is registered after connecting
                 return await AuthApp.checkUser();
             } catch (error) {
                 console.error('User denied account access:', error);
@@ -165,6 +165,7 @@ const AuthApp = {
                     await window.ethereum.request({ method: 'eth_requestAccounts' });
                 } else {
                     alert('MetaMask is not installed!');
+                    console.error('MetaMask is not installed!');
                     return false;
                 }
             }
@@ -176,7 +177,6 @@ const AuthApp = {
             this.account = accounts[0];
             console.log("Connected account:", this.account);
 
-            // Add a check before accessing the element
             const walletAddressElement = document.getElementById('walletAddress');
             if (walletAddressElement) {
                 walletAddressElement.textContent = this.account;
@@ -193,19 +193,17 @@ const AuthApp = {
             if (!await this.loadAccount()) {
                 return { success: false, error: 'Không thể kết nối MetaMask' };
             }
-            // Check if the wallet is already registered
             const isAlreadyRegistered = await this.contracts.Auth.methods.isRegistered(this.account).call();
             if (isAlreadyRegistered) {
                 return { success: false, error: 'Địa chỉ ví này đã được đăng ký' };
             }
-
-            // Check if role exists
-            const roleExists = await this.contracts.Auth.methods.roleExists(role).call();
-            if (!roleExists) {
+    
+            // Thêm vai trò 'dean' vào danh sách allowedRoles
+            const allowedRoles = ['admin', 'dean', 'teacher', 'student'];
+            if (!allowedRoles.includes(role)) {
                 return { success: false, error: `Quyền "${role}" không tồn tại trong hệ thống` };
             }
-
-            // Register with MongoDB first
+    
             try {
                 const apiResponse = await fetch('http://localhost:3000/api/register', {
                     method: 'POST',
@@ -220,27 +218,24 @@ const AuthApp = {
                         address: this.account
                     })
                 });
-
+    
                 const apiResult = await apiResponse.json();
-
+    
                 if (!apiResult.success) {
                     return { success: false, error: apiResult.error || 'Lỗi đăng ký với hệ thống' };
                 }
-
+    
                 console.log("MongoDB registration successful:", apiResult);
             } catch (dbError) {
                 console.error("MongoDB registration error:", dbError);
                 return { success: false, error: `Lỗi kết nối với cơ sở dữ liệu: ${dbError.message}` };
             }
-
-            // Call the blockchain register function
+    
             const blockchainResult = await this.contracts.Auth.methods
                 .register(name, email, password, role)
                 .send({ from: this.account, gas: 3000000 });
-
+    
             console.log("Blockchain registration successful:", blockchainResult);
-
-            // Prepare user info
             const userInfo = {
                 address: this.account,
                 name: name,
@@ -248,8 +243,7 @@ const AuthApp = {
                 role: role,
                 loggedIn: true
             };
-
-            // Store user info locally if needed
+    
             localStorage.setItem('userAuth', JSON.stringify(userInfo));
             return { success: true, user: userInfo };
         } catch (error) {
@@ -261,23 +255,20 @@ const AuthApp = {
             return { success: false, error: `Lỗi đăng ký: ${errorMessage}` };
         }
     },
-
+    
     debugContract: async function () {
         try {
-            // Get all available methods from the contract
             console.log("Available methods:",
                 Object.keys(AuthApp.contracts.Auth.methods)
                     .filter(key => typeof AuthApp.contracts.Auth.methods[key] === 'function')
             );
 
-            // Print the owner of the contract if there's an owner method
             if (AuthApp.contracts.Auth.methods.owner) {
                 const owner = await AuthApp.contracts.Auth.methods.owner().call();
                 console.log("Contract owner:", owner);
                 console.log("Is caller the owner:", owner.toLowerCase() === AuthApp.account.toLowerCase());
             }
 
-            // Try to get any public variables
             if (AuthApp.contracts.Auth.methods.userCount) {
                 const userCount = await AuthApp.contracts.Auth.methods.userCount().call();
                 console.log("User count:", userCount);
@@ -294,7 +285,6 @@ const AuthApp = {
         try {
             this.loading = true;
 
-            // 1. Kết nối đến MetaMask
             if (!await this.loadAccount()) {
                 return { success: false, error: 'Không thể kết nối MetaMask', type: 'connection' };
             }
@@ -302,7 +292,6 @@ const AuthApp = {
             console.log("Đang thực hiện đăng nhập với tài khoản:", this.account);
 
             try {
-                // 2. Kiểm tra xem địa chỉ ví đã đăng ký chưa
                 const isRegistered = await this.contracts.Auth.methods.isRegistered(this.account).call();
                 console.log("Trạng thái đăng ký của ví:", isRegistered);
 
@@ -310,7 +299,6 @@ const AuthApp = {
                     return { success: false, error: 'Địa chỉ ví này chưa đăng ký', type: 'not_registered' };
                 }
 
-                // 3. Kiểm tra đăng nhập với MongoDB
                 try {
                     const apiResponse = await fetch('http://localhost:3000/api/login', {
                         method: 'POST',
@@ -335,7 +323,6 @@ const AuthApp = {
 
                     console.log("MongoDB login successful:", apiResult);
 
-                    // 4. Nếu thành công với MongoDB, đăng nhập với blockchain
                     const blockchainResult = await this.contracts.Auth.methods.login(password).call({
                         from: this.account
                     });
@@ -343,8 +330,6 @@ const AuthApp = {
                     console.log("Blockchain login result:", blockchainResult);
 
                     if (!blockchainResult) {
-                        // Nếu blockchain đăng nhập thất bại nhưng MongoDB thành công,
-                        // có thể đồng bộ blockchain với MongoDB hoặc báo lỗi
                         return {
                             success: false,
                             error: 'Mật khẩu không chính xác hoặc dữ liệu blockchain không đồng bộ',
@@ -352,20 +337,18 @@ const AuthApp = {
                         };
                     }
 
-                    // 5. Lấy thông tin người dùng từ MongoDB
                     const userData = apiResult.user;
 
                     console.log("User data retrieved:", userData);
 
-                    // 6. Lưu thông tin đăng nhập vào local storage
                     const userInfo = {
                         address: this.account,
                         name: userData.name,
                         email: userData.email,
                         role: userData.role,
-                        token: apiResult.token, // Đảm bảo token được lưu trữ
+                        token: apiResult.token,
                         loggedIn: true,
-                        timestamp: Date.now() // Thêm timestamp để kiểm tra phiên đăng nhập
+                        timestamp: Date.now()
                     };
 
                     localStorage.setItem('userAuth', JSON.stringify(userInfo));
@@ -394,10 +377,61 @@ const AuthApp = {
             this.loading = false;
         }
     },
+hasRole: async function (role) {
+        try {
+            // Kiểm tra tài khoản trước
+            if (!this.account) {
+                await this.loadAccount();
+                if (!this.account) {
+                    console.error("Không thể tải tài khoản để kiểm tra vai trò");
+                    return false;
+                }
+            }
 
+            // Kiểm tra contract
+            if (!this.contracts.Auth) {
+                await this.initContract();
+                if (!this.contracts.Auth) {
+                    console.error("Không thể khởi tạo contract để kiểm tra vai trò");
+                    return false;
+                }
+            }
+
+            // Lấy thông tin từ localStorage
+            const userAuth = localStorage.getItem('userAuth');
+            if (!userAuth) {
+                console.error("Không tìm thấy userAuth trong localStorage");
+                return false;
+            }
+
+            const user = JSON.parse(userAuth);
+            if (!user.role) {
+                console.error("Không tìm thấy vai trò trong userAuth");
+                return false;
+            }
+
+            // Kiểm tra vai trò từ localStorage trước
+            if (user.role === role) {
+                // Xác nhận với blockchain để đảm bảo tính chính xác
+                try {
+                    const blockchainRole = await this.contracts.Auth.methods.getUserRole(this.account).call();
+                    console.log(`Vai trò từ blockchain: ${blockchainRole}, vai trò cần kiểm tra: ${role}`);
+                    return blockchainRole === role;
+                } catch (error) {
+                    console.error(`Lỗi khi xác thực vai trò ${role} với blockchain:`, error);
+                    // Nếu blockchain thất bại, tin tưởng localStorage
+                    return user.role === role;
+                }
+            }
+
+            return false;
+        } catch (error) {
+            console.error(`Lỗi khi kiểm tra vai trò ${role}:`, error);
+            return false;
+        }
+    },
     checkLoginStatus: async function () {
         try {
-            // Kiểm tra thông tin đăng nhập từ localStorage
             const userAuth = localStorage.getItem('userAuth');
             if (!userAuth) {
                 return { loggedIn: false };
@@ -405,13 +439,11 @@ const AuthApp = {
 
             const user = JSON.parse(userAuth);
             
-            // Kiểm tra xem có token hợp lệ không
             if (!user.token) {
                 localStorage.removeItem('userAuth');
                 return { loggedIn: false, error: 'Token không hợp lệ' };
             }
             
-            // Kiểm tra timestamp để đảm bảo phiên không quá cũ
             const now = Date.now();
             const loginTime = user.timestamp || 0;
             const sessionLength = 24 * 60 * 60 * 1000; // 24 giờ
@@ -421,19 +453,15 @@ const AuthApp = {
                 return { loggedIn: false, error: 'Phiên đăng nhập đã hết hạn' };
             }
 
-            // Kết nối đến MetaMask để lấy địa chỉ hiện tại
             if (!await this.loadAccount()) {
-                // Người dùng không kết nối với MetaMask
                 return { loggedIn: false, error: 'Không thể kết nối với MetaMask' };
             }
 
-            // Nếu không tìm thấy account, có thể vẫn đang kết nối
             if (!this.account) {
                 console.log("Đang chờ kết nối MetaMask...");
-                return { loggedIn: true, user: user }; // Giả định vẫn đăng nhập nếu có userAuth
+                return { loggedIn: true, user: user };
             }
 
-            // Kiểm tra xem địa chỉ ví hiện tại có phải là địa chỉ đã đăng nhập không
             if (user.address.toLowerCase() !== this.account.toLowerCase()) {
                 console.log("Địa chỉ ví đã thay đổi. Đăng xuất...");
                 localStorage.removeItem('userAuth');
@@ -443,7 +471,6 @@ const AuthApp = {
                 };
             }
 
-            // Cập nhật timestamp để kéo dài phiên đăng nhập
             user.timestamp = Date.now();
             localStorage.setItem('userAuth', JSON.stringify(user));
 
@@ -457,7 +484,6 @@ const AuthApp = {
         }
     },
 
-    // Thêm hàm kiểm tra vai trò admin
     isAdmin: async function () {
         try {
             if (!this.account) {
@@ -465,17 +491,14 @@ const AuthApp = {
                 if (!this.account) return false;
             }
 
-            // Make sure contract is initialized
             if (!this.contracts.Auth) {
                 await this.initContract();
             }
 
-            // Check localStorage first
             const userAuth = localStorage.getItem('userAuth');
             if (userAuth) {
                 const user = JSON.parse(userAuth);
                 if (user.role === 'admin') {
-                    // Verify with blockchain
                     try {
                         const role = await this.contracts.Auth.methods.getUserRole(this.account).call();
                         return role === 'admin';
@@ -502,7 +525,6 @@ const AuthApp = {
                 }
             }
 
-            // Check if wallet address is registered in MongoDB
             const response = await fetch('http://localhost:3000/api/verify-wallet', {
                 method: 'POST',
                 headers: {
@@ -521,7 +543,8 @@ const AuthApp = {
 
     logout: function () {
         localStorage.removeItem('userAuth');
-        window.location.href = "login.html";
+        console.log("userAuth từ localStorage:", localStorage.getItem('userAuth'));
+        window.location.href = "../login.html";
         return true;
     },
 
@@ -538,12 +561,10 @@ const AuthApp = {
 
             console.log("Available methods:", Object.keys(this.contracts.Auth.methods));
 
-            // Use the correct method name as it appears in your contract
             const isRegistered = await this.contracts.Auth.methods.isRegistered(this.account).call();
             console.log("Registration result:", isRegistered);
 
             if (isRegistered) {
-                // Lấy thêm thông tin người dùng nếu đã đăng ký
                 try {
                     const user = await this.contracts.Auth.methods.users(this.account).call();
                     const role = await this.contracts.Auth.methods.getUserRole(this.account).call();
@@ -575,7 +596,6 @@ const AuthApp = {
                 return { success: false, error: 'Auth contract not initialized' };
             }
 
-            // Try to call a simple view function to verify connectivity
             await this.contracts.Auth.methods.getUserCount().call();
             return { success: true };
         } catch (error) {
@@ -601,7 +621,6 @@ const AuthApp = {
     }
 };
 
-// Initialize the app when page loads
 window.addEventListener('load', function () {
     AuthApp.init();
 });

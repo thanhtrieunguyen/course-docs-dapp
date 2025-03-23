@@ -4,7 +4,8 @@ const RoleManagement = {
     account: null,
     permissions: {
         teacher: {},
-        student: {}
+        student: {},
+        dean: {}
     },
     
     init: async function() {
@@ -91,30 +92,40 @@ const RoleManagement = {
                 throw new Error(result.error || 'Failed to load permissions');
             }
             
-            // Process permissions for each role
             result.permissions.forEach(rolePermission => {
                 if (rolePermission.role === 'teacher') {
                     this.permissions.teacher = rolePermission.permissions;
-                    // Update teacher toggle switches
                     document.getElementById('teacherUpload').checked = rolePermission.permissions.upload;
-                    document.getElementById('teacherView').checked = true; // Always true for teachers
+                    document.getElementById('teacherView').checked = true;
                     document.getElementById('teacherDelete').checked = rolePermission.permissions.delete;
                     document.getElementById('teacherManageCourse').checked = rolePermission.permissions.manageCourse || true;
-                    
-                    // Update table cells
+
                     this.updateTableCell('tableTeacherUpload', rolePermission.permissions.upload);
                     this.updateTableCell('tableTeacherView', true);
                     this.updateTableCell('tableTeacherDelete', rolePermission.permissions.delete);
                     this.updateTableCell('tableTeacherManageCourse', rolePermission.permissions.manageCourse || true);
+                } else if (rolePermission.role === 'dean') {
+                    this.permissions.dean = rolePermission.permissions;
+                    document.getElementById('deanUpload').checked = rolePermission.permissions.upload;
+                    document.getElementById('deanView').checked = true; // Always true for deans
+                    document.getElementById('deanDelete').checked = rolePermission.permissions.delete;
+                    document.getElementById('deanManageCourse').checked = rolePermission.permissions.manageCourse || true;
+                    document.getElementById('deanApproveCourse').checked = rolePermission.permissions.approveCourse || true;
+                    document.getElementById('deanManageDepartment').checked = rolePermission.permissions.manageDepartment || true;
+
+                    this.updateTableCell('tableDeanUpload', rolePermission.permissions.upload);
+                    this.updateTableCell('tableDeanView', true);
+                    this.updateTableCell('tableDeanDelete', rolePermission.permissions.delete);
+                    this.updateTableCell('tableDeanManageCourse', rolePermission.permissions.manageCourse || true);
+                    this.updateTableCell('tableDeanApproveCourse', rolePermission.permissions.approveCourse || true);
+                    this.updateTableCell('tableDeanManageDepartment', rolePermission.permissions.manageDepartment || true);
                 } else if (rolePermission.role === 'student') {
                     this.permissions.student = rolePermission.permissions;
-                    // Update student toggle switches
-                    document.getElementById('studentView').checked = true; // Always true for students
+                    document.getElementById('studentView').checked = true; 
                     document.getElementById('studentReview').checked = rolePermission.permissions.review;
                     document.getElementById('studentReport').checked = rolePermission.permissions.report || true;
                     document.getElementById('studentUpload').checked = rolePermission.permissions.upload;
-                    
-                    // Update table cells
+
                     this.updateTableCell('tableStudentUpload', rolePermission.permissions.upload);
                     this.updateTableCell('tableStudentView', true);
                     this.updateTableCell('tableStudentReview', rolePermission.permissions.review);
@@ -163,6 +174,41 @@ const RoleManagement = {
                 this.showStatus('success', 'Đã cập nhật quyền cho giảng viên thành công');
             } catch (error) {
                 console.error("Error saving teacher permissions:", error);
+                this.showStatus('error', 'Lỗi khi cập nhật quyền: ' + error.message);
+            }
+        });
+        
+        // Save dean permissions
+        document.getElementById('saveDeanPermissions').addEventListener('click', async () => {
+            try {
+                const uploadPermission = document.getElementById('deanUpload').checked;
+                const viewPermission = document.getElementById('deanView').checked;
+                const deletePermission = document.getElementById('deanDelete').checked;
+                const manageCoursePermission = document.getElementById('deanManageCourse').checked;
+                const approveCoursePermission = document.getElementById('deanApproveCourse').checked;
+                const manageDepartmentPermission = document.getElementById('deanManageDepartment').checked;
+                
+                // Update permissions in database
+                await this.updatePermissions('dean', {
+                    upload: uploadPermission,
+                    view: viewPermission,
+                    delete: deletePermission,
+                    manageCourse: manageCoursePermission,
+                    approveCourse: approveCoursePermission,
+                    manageDepartment: manageDepartmentPermission
+                });
+                
+                // Update table
+                this.updateTableCell('tableDeanUpload', uploadPermission);
+                this.updateTableCell('tableDeanView', viewPermission);
+                this.updateTableCell('tableDeanDelete', deletePermission);
+                this.updateTableCell('tableDeanManageCourse', manageCoursePermission);
+                this.updateTableCell('tableDeanApproveCourse', approveCoursePermission);
+                this.updateTableCell('tableDeanManageDepartment', manageDepartmentPermission);
+                
+                this.showStatus('success', 'Đã cập nhật quyền cho trưởng khoa thành công');
+            } catch (error) {
+                console.error("Error saving dean permissions:", error);
                 this.showStatus('error', 'Lỗi khi cập nhật quyền: ' + error.message);
             }
         });

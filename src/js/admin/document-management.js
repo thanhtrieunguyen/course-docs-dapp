@@ -58,31 +58,23 @@ const DocumentManagement = {
     },
     
     checkAdminAccess: async function() {
-        try {
-            // Check if AuthApp is available
-            if (!window.AuthApp) {
-                console.error("AuthApp is not defined. Make sure auth.js is loaded before document-management.js");
-                return false;
-            }
-            
-            // Initialize AuthApp if needed
-            if (!AuthApp.web3) {
-                await AuthApp.init();
-            }
-            
-            // Verify that the auth contract is initialized
-            if (!AuthApp.contracts || !AuthApp.contracts.auth) {
-                console.error("AuthApp.contracts.auth is not initialized. Make sure auth contract is properly loaded");
-                return false;
-            }
-            
-            // Check if user is logged in and has admin role
-            const role = await AuthApp.contracts.auth.methods.getUserRole(this.account).call();
-            return role === 'admin';
-        } catch (error) {
-            console.error("Error checking admin access:", error);
+        console.log("Kiểm tra quyền với account:", this.account);
+        if (!window.AuthApp) {
+            console.error("AuthApp is not defined");
             return false;
         }
+        if (!AuthApp.web3) {
+            await AuthApp.init();
+        }
+        if (!AuthApp.contracts || !AuthApp.contracts.auth) {
+            console.error("Auth contract not initialized");
+            return false;
+        }
+        const role = await AuthApp.contracts.auth.methods.getUserRole(this.account).call();
+        console.log("Vai trò từ blockchain:", role);
+        const hasAccess = role === 'admin' || role === 'dean';
+        console.log("Kết quả kiểm tra:", hasAccess);
+        return hasAccess;
     },
     
     initContract: async function() {
@@ -283,7 +275,7 @@ const DocumentManagement = {
     },
     
     setupEventListeners: function() {
-        // Document table row actions
+        // Document table row actions (dùng delegation, không cần kiểm tra ID)
         document.addEventListener('click', (e) => {
             const row = e.target.closest('tr');
             if (!row || !row.dataset.documentId) return;
@@ -300,71 +292,122 @@ const DocumentManagement = {
         });
         
         // Cancel edit button
-        document.getElementById('cancelEditBtn').addEventListener('click', function() {
-            DocumentManagement.cancelEdit();
-        });
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        if (cancelEditBtn) {
+            cancelEditBtn.addEventListener('click', () => this.cancelEdit());
+        } else {
+            console.warn("Element 'cancelEditBtn' not found in DOM");
+        }
         
         // Document action buttons
-        document.getElementById('viewDocumentBtn').addEventListener('click', function() {
-            if (DocumentManagement.selectedDocument) {
-                DocumentManagement.viewDocument(DocumentManagement.selectedDocument.id);
-            }
-        });
+        const viewDocumentBtn = document.getElementById('viewDocumentBtn');
+        if (viewDocumentBtn) {
+            viewDocumentBtn.addEventListener('click', () => {
+                if (this.selectedDocument) {
+                    this.viewDocument(this.selectedDocument.id);
+                }
+            });
+        } else {
+            console.warn("Element 'viewDocumentBtn' not found in DOM");
+        }
         
-        document.getElementById('flagDocumentBtn').addEventListener('click', function() {
-            if (DocumentManagement.selectedDocument) {
-                DocumentManagement.showFlagModal(DocumentManagement.selectedDocument.id);
-            }
-        });
+        const flagDocumentBtn = document.getElementById('flagDocumentBtn');
+        if (flagDocumentBtn) {
+            flagDocumentBtn.addEventListener('click', () => {
+                if (this.selectedDocument) {
+                    this.showFlagModal(this.selectedDocument.id);
+                }
+            });
+        } else {
+            console.warn("Element 'flagDocumentBtn' not found in DOM");
+        }
         
-        document.getElementById('removeDocumentBtn').addEventListener('click', function() {
-            if (DocumentManagement.selectedDocument) {
-                DocumentManagement.confirmDeleteDocument(DocumentManagement.selectedDocument.id);
-            }
-        });
+        const removeDocumentBtn = document.getElementById('removeDocumentBtn');
+        if (removeDocumentBtn) {
+            removeDocumentBtn.addEventListener('click', () => {
+                if (this.selectedDocument) {
+                    this.confirmDeleteDocument(this.selectedDocument.id);
+                }
+            });
+        } else {
+            console.warn("Element 'removeDocumentBtn' not found in DOM");
+        }
         
         // Edit document form submit
-        document.getElementById('editDocumentForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            DocumentManagement.updateDocument();
-        });
+        const editDocumentForm = document.getElementById('editDocumentForm');
+        if (editDocumentForm) {
+            editDocumentForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.updateDocument();
+            });
+        } else {
+            console.warn("Element 'editDocumentForm' not found in DOM");
+        }
         
         // Confirm modal actions
-        document.getElementById('cancelModalBtn').addEventListener('click', function() {
-            DocumentManagement.hideModal();
-        });
+        const cancelModalBtn = document.getElementById('cancelModalBtn');
+        if (cancelModalBtn) {
+            cancelModalBtn.addEventListener('click', () => this.hideModal());
+        } else {
+            console.warn("Element 'cancelModalBtn' not found in DOM");
+        }
         
-        document.getElementById('confirmModalBtn').addEventListener('click', function() {
-            if (DocumentManagement.modalCallback) {
-                DocumentManagement.modalCallback();
-            }
-            DocumentManagement.hideModal();
-        });
+        const confirmModalBtn = document.getElementById('confirmModalBtn');
+        if (confirmModalBtn) {
+            confirmModalBtn.addEventListener('click', () => {
+                if (this.modalCallback) {
+                    this.modalCallback();
+                }
+                this.hideModal();
+            });
+        } else {
+            console.warn("Element 'confirmModalBtn' not found in DOM");
+        }
         
         // Flag modal actions
-        document.getElementById('cancelFlagBtn').addEventListener('click', function() {
-            document.getElementById('flagModal').classList.add('hidden');
-        });
+        const cancelFlagBtn = document.getElementById('cancelFlagBtn');
+        if (cancelFlagBtn) {
+            cancelFlagBtn.addEventListener('click', () => {
+                document.getElementById('flagModal')?.classList.add('hidden');
+            });
+        } else {
+            console.warn("Element 'cancelFlagBtn' not found in DOM");
+        }
         
-        document.getElementById('confirmFlagBtn').addEventListener('click', function() {
-            const reason = document.getElementById('flagReason').value;
-            const docId = DocumentManagement.selectedDocument.id;
-            DocumentManagement.flagDocument(docId, reason);
-            document.getElementById('flagModal').classList.add('hidden');
-        });
+        const confirmFlagBtn = document.getElementById('confirmFlagBtn');
+        if (confirmFlagBtn) {
+            confirmFlagBtn.addEventListener('click', () => {
+                const reason = document.getElementById('flagReason')?.value;
+                if (this.selectedDocument) {
+                    this.flagDocument(this.selectedDocument.id, reason);
+                }
+                document.getElementById('flagModal')?.classList.add('hidden');
+            });
+        } else {
+            console.warn("Element 'confirmFlagBtn' not found in DOM");
+        }
         
         // Search and filter
-        document.getElementById('searchDocument').addEventListener('input', function() {
-            DocumentManagement.filterDocuments();
-        });
+        const searchDocument = document.getElementById('searchDocument');
+        if (searchDocument) {
+            searchDocument.addEventListener('input', () => this.filterDocuments());
+        } else {
+            console.warn("Element 'searchDocument' not found in DOM");
+        }
         
-        document.getElementById('filterStatus').addEventListener('change', function() {
-            DocumentManagement.filterDocuments();
-        });
+        const filterStatus = document.getElementById('filterStatus');
+        if (filterStatus) {
+            filterStatus.addEventListener('change', () => this.filterDocuments());
+        } else {
+            console.warn("Element 'filterStatus' not found in DOM");
+        }
         
-        document.getElementById('filterCourse').addEventListener('change', function() {
-            DocumentManagement.filterDocuments();
-        });
+        const filterCourse = document.getElementById('filterCourse');
+        if (filterCourse) {
+            filterCourse.addEventListener('change', () => this.filterDocuments());
+        } else {
+            console.warn("Element 'filterCourse' not found in DOM");
+        }
     },
     
     viewDocument: async function(documentId) {

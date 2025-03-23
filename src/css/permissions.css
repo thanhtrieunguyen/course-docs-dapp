@@ -1,0 +1,74 @@
+
+[data-permission]:not([data-permission-granted="true"]) {
+    display: none !important;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.role-admin {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.role-dean {
+    background-color: #10b981;
+    color: white;
+}
+
+.role-teacher {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.role-student {
+    background-color: #6366f1;
+    color: white;
+}
+
+/* Thông báo không có quyền truy cập */
+.permission-alert {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border-left: 4px solid #ef4444;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.25rem;
+}
+
+/* Hiển thị phần tử chỉ khi có quyền */
+.admin-only {
+    display: none;
+}
+
+.admin-dean-only {
+    display: none;
+}
+
+body[data-role="admin"] .admin-only,
+body[data-role="admin"] .admin-dean-only,
+body[data-role="dean"] .admin-dean-only {
+    display: block;
+}
+
+/* Khi là thành phần inline */
+.admin-only-inline {
+    display: none;
+}
+
+.admin-dean-only-inline {
+    display: none;
+}
+
+body[data-role="admin"] .admin-only-inline,
+body[data-role="admin"] .admin-dean-only-inline,
+body[data-role="dean"] .admin-dean-only-inline {
+    display: inline-block;
+}

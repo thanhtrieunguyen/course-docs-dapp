@@ -133,7 +133,7 @@ const UserManagement = {
             let tableRows = '';
             for (const user of UserManagement.users) {
                 tableRows += `
-                <tr data-address="${user.address}" class="hover:bg-gray-50 cursor-pointer user-row">
+               <tr data-address="${user.address}" class="hover:bg-gray-50 cursor-pointer user-row">
                     <td class="py-3 px-4 border-b">${user.name}</td>
                     <td class="py-3 px-4 border-b">${user.email}</td>
                     <td class="py-3 px-4 border-b">${user.address.substr(0, 8)}...${user.address.substr(-6)}</td>
@@ -141,11 +141,13 @@ const UserManagement = {
                         <span class="px-2 py-1 rounded text-xs ${
                             user.role === 'admin' ? 'bg-red-100 text-red-800' :
                             user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
+                            user.role === 'dean' ? 'bg-purple-100 text-purple-800' :
                             'bg-green-100 text-green-800'
                         }">
                             ${user.role === 'admin' ? 'Quản trị viên' :
-                              user.role === 'teacher' ? 'Giảng viên' :
-                              'Học viên'
+                            user.role === 'teacher' ? 'Giảng viên' :
+                            user.role === 'dean' ? 'Trưởng khoa' :
+                            'Học viên'
                             }
                         </span>
                     </td>
@@ -240,7 +242,8 @@ const UserManagement = {
             const matchesRole = roleFilter === '' || 
                               (roleFilter === 'admin' && role.includes('quản trị')) ||
                               (roleFilter === 'teacher' && role.includes('giảng viên')) ||
-                              (roleFilter === 'student' && role.includes('học viên'));
+                              (roleFilter === 'student' && role.includes('học viên'))||
+                              (roleFilter === 'dean' && role.includes('trưởng khoa'));
             
             // Show or hide row
             if (matchesSearch && matchesRole) {

@@ -1,5 +1,3 @@
-// ...existing code...
-
 // After successful login response:
 if (response.ok) {
     const data = await response.json();
@@ -10,7 +8,7 @@ if (response.ok) {
                 token: data.token,
                 name: data.user.name,
                 email: data.user.email,
-                role: data.user.role,
+                role: data.user.role, // Vai trò 'dean' sẽ được lưu nếu API trả về
                 address: data.user.address
             });
         } else {
@@ -19,7 +17,7 @@ if (response.ok) {
                 token: data.token,
                 name: data.user.name,
                 email: data.user.email,
-                role: data.user.role,
+                role: data.user.role, // Vai trò 'dean' sẽ được lưu nếu API trả về
                 address: data.user.address,
                 loggedIn: true,
                 timestamp: Date.now()
@@ -31,7 +29,8 @@ if (response.ok) {
         window.location.href = 'index.html';
     } else {
         // Handle login error
-        // ...existing code...
+        console.error("Đăng nhập thất bại:", data.error || 'Lỗi không xác định');
+        // Hiển thị thông báo lỗi cho người dùng (tùy thuộc vào giao diện của bạn)
+        alert(data.error || 'Đăng nhập thất bại. Vui lòng thử lại.');
     }
 }
-// ...existing code...

@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/auth');
 const Document = require('../models/Document');
-const upload = require('../middleware/upload');
+const multer = require('multer');
+const upload = multer({ dest: 'src/public/uploads/' }); // Dùng trực tiếp multer
 const { calculateFileHash } = require('../utils/fileUtils');
 
 router.post('/upload-document', authenticateToken, upload.single('file'), async (req, res, next) => {
