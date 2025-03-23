@@ -38,7 +38,7 @@ contract Auth {
         roles["admin"] = Role("Administrator", true);
         roles["teacher"] = Role("Teacher", true);
         roles["student"] = Role("Student", true);
-        roles["head"] = Role("head", true);//đây là role trưởng khoa
+        roles["dean"] = Role("dean", true);//đây là role trưởng khoa
 
         // Set contract deployer as the initial admin
         userRoles[msg.sender] = "admin";

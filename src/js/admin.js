@@ -115,8 +115,8 @@ const AdminApp = {
                             <p class="text-sm text-gray-500">${address}</p>
                             <p class="text-sm text-gray-700">Email: ${userData.email}</p>
                             <p class="text-sm">
-                                <span class="px-2 py-1 rounded text-xs ${role === 'admin' ? 'bg-red-100 text-red-800' : role === 'teacher' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">
-                                    ${role === 'admin' ? 'Quản trị viên' : role === 'teacher' ? 'Giảng viên' : 'Sinh viên'}
+                               <span class="px-2 py-1 rounded text-xs ${role === 'admin' ? 'bg-red-100 text-red-800' : role === 'teacher' ? 'bg-blue-100 text-blue-800' : role === 'dean' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}">
+                                    ${role === 'admin' ? 'Quản trị viên' : role === 'teacher' ? 'Giảng viên' : role === 'dean' ? 'Trưởng khoa' : 'Sinh viên'}
                                 </span>
                             </p>
                         </div>
@@ -125,6 +125,7 @@ const AdminApp = {
                                 <option value="student" ${role === 'student' ? 'selected' : ''}>Sinh viên</option>
                                 <option value="teacher" ${role === 'teacher' ? 'selected' : ''}>Giảng viên</option>
                                 <option value="admin" ${role === 'admin' ? 'selected' : ''}>Quản trị viên</option>
+                                <option value="admin" ${role === 'dean' ? 'selected' : ''}>Trưởng khoa</option>
                             </select>
                             <button class="update-role bg-blue-500 text-white text-xs py-1 px-2 rounded hover:bg-blue-600" data-address="${address}">
                                 Cập nhật quyền

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,8 +8,16 @@
     <link href="../css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
+<body class="bg-gray-100" data-required-role="admin, dean"  id="adminBody">
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = JSON.parse(localStorage.getItem('userAuth') || '{}');
+            if (user && user.role) {
+                document.getElementById('adminBody').setAttribute('data-role', user.role);
+            }
+        });
+    </script>
 
-<body class="bg-gray-100">
     <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between h-16">
@@ -22,30 +29,29 @@
                     <a href="dashboard.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
                         Bảng điều khiển
                     </a>
-                    <button onclick="AuthApp.logout(); window.location.href='../login.html';" id="logoutButton"
-                        class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
+                    <button id="logoutBtn" class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
+        
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Admin Menu -->
     <div class="bg-white shadow-md">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex space-x-8">
-                <a href="dashboard.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="dashboard.html" class="px-3 py-4 text-blue-600 border-b-2 border-blue-600 font-medium">
                     <i class="fas fa-tachometer-alt mr-2"></i>Tổng quan
                 </a>
-                <a href="user-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="user-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-only">
                     <i class="fas fa-users mr-2"></i>Quản lý người dùng
                 </a>
-                <a href="role-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="role-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-only">
                     <i class="fas fa-user-shield mr-2"></i>Phân quyền hệ thống
                 </a>
-                <a href="document-management.html" class="px-3 py-4 text-blue-600 border-b-2 border-blue-600 font-medium">
+                <a href="document-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-dean-only">
                     <i class="fas fa-book mr-2"></i>Quản lý tài liệu
                 </a>
-                <a href="cauhinh.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="cauhinh.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-only">
                     <i class="fas fa-cog mr-2"></i>Cấu hình hệ thống
                 </a>
             </div>
@@ -53,18 +59,13 @@
     </div>
 
     <div class="max-w-7xl mx-auto px-4 py-8">
-        <!-- Status Message -->
         <div id="statusMessage" class="mb-4 hidden"></div>
-
-        <!-- Document Management Interface -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-semibold">Danh sách tài liệu</h2>
                 <div class="flex space-x-2">
-                    <input type="text" id="searchDocument" placeholder="Tìm kiếm tài liệu..."
-                        class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <select id="filterStatus"
-                        class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="searchDocument" placeholder="Tìm kiếm tài liệu..." class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filterStatus" class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Tất cả trạng thái</option>
                         <option value="verified">Đã xác thực</option>
                         <option value="unverified">Chưa xác thực</option>
@@ -72,24 +73,23 @@
                         <option value="private">Riêng tư</option>
                         <option value="flagged">Đã gắn cờ</option>
                     </select>
-                    <select id="filterCourse"
-                        class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filterCourse" class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Tất cả khóa học</option>
-                        <!-- Courses will be loaded dynamically -->
                     </select>
+                    <button id="addDocumentBtn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded admin-dean-only">
+                        <i class="fas fa-plus mr-2"></i>Thêm tài liệu mới
+                    </button>
                 </div>
             </div>
-
-            <!-- Documents Table -->
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white">
                     <thead class="bg-gray-100">
                         <tr>
                             <th class="py-2 px-4 border-b text-left">Tiêu đề</th>
                             <th class="py-2 px-4 border-b text-left">Người tải lên</th>
+                            <th class="py-2 px-4 border-b text-left">Khóa học</th>
                             <th class="py-2 px-4 border-b text-left">Trạng thái</th>
                             <th class="py-2 px-4 border-b text-left">Ngày tải lên</th>
-                            <!-- <th class="py-2 px-4 border-b text-left">Khóa học</th> -->
                             <th class="py-2 px-4 border-b text-left">Hành động</th>
                         </tr>
                     </thead>
@@ -100,12 +100,24 @@
                     </tbody>
                 </table>
             </div>
+            <div class="mt-4 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    Hiển thị <span id="documentCount">0</span> tài liệu
+                </div>
+                <div class="flex space-x-2">
+                    <button id="prevPageBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded disabled:opacity-50">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="paginationInfo" class="py-1 px-3">Trang 1</span>
+                    <button id="nextPageBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded disabled:opacity-50">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <!-- Document Detail Section -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <h2 class="text-xl font-semibold mb-6">Chi tiết tài liệu</h2>
-
             <div id="documentDetailForm" class="hidden">
                 <form id="editDocumentForm">
                     <input type="hidden" id="editDocumentId">
@@ -116,75 +128,97 @@
                         </div>
                         <div>
                             <label for="editOwner" class="block text-sm font-medium text-gray-700 mb-1">Người tải lên</label>
-                            <input type="text" id="editOwner" class="w-full border rounded px-3 py-2" disabled>
+                            <input type="text" id="editOwner" class="w-full border rounded px-3 py-2" readonly>
                         </div>
                     </div>
-
                     <div class="mb-4">
                         <label for="editDescription" class="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
                         <textarea id="editDescription" class="w-full border rounded px-3 py-2" rows="3"></textarea>
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                             <label for="editCourse" class="block text-sm font-medium text-gray-700 mb-1">Khóa học</label>
                             <select id="editCourse" class="w-full border rounded px-3 py-2">
                                 <option value="">Không thuộc khóa học nào</option>
-                                <!-- Courses will be loaded dynamically -->
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-                            <div class="flex items-center space-x-4 py-2">
-                                <label class="inline-flex items-center">
-                                    <input type="checkbox" id="editIsPublic" class="form-checkbox h-5 w-5 text-blue-600">
-                                    <span class="ml-2 text-gray-700">Công khai</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="checkbox" id="editIsVerified" class="form-checkbox h-5 w-5 text-green-600">
-                                    <span class="ml-2 text-gray-700">Đã xác thực</span>
-                                </label>
-                            </div>
+                            <label for="editCategory" class="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                            <select id="editCategory" class="w-full border rounded px-3 py-2">
+                                <option value="">Chọn danh mục</option>
+                                <option value="lecture">Bài giảng</option>
+                                <option value="assignment">Bài tập</option>
+                                <option value="reference">Tài liệu tham khảo</option>
+                                <option value="exam">Đề thi</option>
+                                <option value="other">Khác</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="editFile" class="block text-sm font-medium text-gray-700 mb-1">Thay thế tệp</label>
+                            <input type="file" id="editFile" class="w-full border rounded px-3 py-2">
                         </div>
                     </div>
-
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                        <div class="flex flex-wrap items-center space-x-4 py-2">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" id="editIsPublic" class="form-checkbox h-5 w-5 text-blue-600">
+                                <span class="ml-2 text-gray-700">Công khai</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" id="editIsVerified" class="form-checkbox h-5 w-5 text-green-600">
+                                <span class="ml-2 text-gray-700">Đã xác thực</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" id="editIsFeatured" class="form-checkbox h-5 w-5 text-purple-600">
+                                <span class="ml-2 text-gray-700">Nổi bật</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" id="editIsArchived" class="form-checkbox h-5 w-5 text-gray-600">
+                                <span class="ml-2 text-gray-700">Lưu trữ</span>
+                            </label>
+                        </div>
+                    </div>
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Hành động</label>
-                        <div class="flex mt-2 space-x-2">
-                            <button type="button" id="viewDocumentBtn"
-                                class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
+                        <div class="flex flex-wrap mt-2 space-x-2 space-y-2 sm:space-y-0">
+                            <button type="button" id="viewDocumentBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded admin-dean-only">
                                 <i class="fas fa-eye mr-2"></i>Xem tài liệu
                             </button>
-                            <button type="button" id="flagDocumentBtn"
-                                class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded">
+                            <button type="button" id="downloadDocumentBtn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded admin-dean-only">
+                                <i class="fas fa-download mr-2"></i>Tải xuống
+                            </button>
+                            <button type="button" id="flagDocumentBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded admin-dean-only">
                                 <i class="fas fa-flag mr-2"></i>Gắn cờ
                             </button>
-                            <button type="button" id="removeDocumentBtn"
-                                class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">
-                                <i class="fas fa-trash mr-2"></i>Xóa
+                            <button type="button" id="deleteDocumentBtn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded admin-only">
+                                <i class="fas fa-trash-alt mr-2"></i>Xóa tài liệu
                             </button>
                         </div>
                     </div>
-
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lịch sử hoạt động</label>
+                        <div id="documentActivityLog" class="border rounded p-3 bg-gray-50 max-h-40 overflow-y-auto text-sm">
+                            <p class="text-gray-500 italic">Đang tải lịch sử hoạt động...</p>
+                        </div>
+                    </div>
                     <div class="flex justify-end space-x-2">
-                        <button type="button" id="cancelEditBtn"
-                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
+                        <button type="button" id="cancelEditBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
                             Hủy
                         </button>
-                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded admin-dean-only">
                             Cập nhật
                         </button>
                     </div>
                 </form>
             </div>
-
             <div id="noDocumentSelected" class="text-center py-10">
                 <p class="text-gray-500">Chọn một tài liệu từ danh sách để xem chi tiết</p>
             </div>
         </div>
     </div>
 
-    <!-- Modal for confirming actions -->
+    <!-- Modal xác nhận -->
     <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div class="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 class="text-lg font-semibold mb-4" id="modalTitle">Xác nhận hành động</h3>
@@ -200,14 +234,13 @@
         </div>
     </div>
 
-    <!-- Flag document modal -->
+    <!-- Modal gắn cờ -->
     <div id="flagModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div class="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 class="text-lg font-semibold mb-4">Gắn cờ tài liệu</h3>
             <div class="mb-4">
                 <label for="flagReason" class="block text-sm font-medium text-gray-700 mb-1">Lý do gắn cờ</label>
-                <textarea id="flagReason" class="w-full border rounded px-3 py-2" rows="3"
-                    placeholder="Nhập lý do gắn cờ tài liệu này..."></textarea>
+                <textarea id="flagReason" class="w-full border rounded px-3 py-2" rows="3" placeholder="Nhập lý do gắn cờ tài liệu này..."></textarea>
             </div>
             <div class="flex justify-end space-x-2">
                 <button id="cancelFlagBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
@@ -220,10 +253,102 @@
         </div>
     </div>
 
-    <!-- Load necessary scripts -->
+    <!-- Modal thêm tài liệu mới -->
+    <div id="addDocumentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 max-w-2xl w-full">
+            <h3 class="text-lg font-semibold mb-4">Thêm tài liệu mới</h3>
+            <form id="addDocumentForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="newTitle" class="block text-sm font-medium text-gray-700 mb-1">Tiêu đề <span class="text-red-500">*</span></label>
+                        <input type="text" id="newTitle" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label for="newCourse" class="block text-sm font-medium text-gray-700 mb-1">Khóa học</label>
+                        <select id="newCourse" class="w-full border rounded px-3 py-2">
+                            <option value="">Không thuộc khóa học nào</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="newDescription" class="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+                    <textarea id="newDescription" class="w-full border rounded px-3 py-2" rows="3"></textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="newCategory" class="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                        <select id="newCategory" class="w-full border rounded px-3 py-2">
+                            <option value="">Chọn danh mục</option>
+                            <option value="lecture">Bài giảng</option>
+                            <option value="assignment">Bài tập</option>
+                            <option value="reference">Tài liệu tham khảo</option>
+                            <option value="exam">Đề thi</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="newFile" class="block text-sm font-medium text-gray-700 mb-1">Tệp tài liệu <span class="text-red-500">*</span></label>
+                        <input type="file" id="newFile" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                    <div class="flex flex-wrap items-center space-x-4 py-2">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="newIsPublic" class="form-checkbox h-5 w-5 text-blue-600" checked>
+                            <span class="ml-2 text-gray-700">Công khai</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="newIsVerified" class="form-checkbox h-5 w-5 text-green-600">
+                            <span class="ml-2 text-gray-700">Đã xác thực</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="newIsFeatured" class="form-checkbox h-5 w-5 text-purple-600">
+                            <span class="ml-2 text-gray-700">Nổi bật</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 mt-6">
+                    <button type="button" id="cancelAddBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
+                        Hủy
+                    </button>
+                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded admin-dean-only">
+                        Thêm tài liệu
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="../js/role-permissions.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/admin/document-management.js"></script>
-</bo<dy>
-
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Chờ AuthApp khởi tạo
+            await AuthApp.init();
+            console.log("AuthApp đã sẵn sàng:", AuthApp.account);
+    
+            // Gắn sự kiện logout
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function() {
+                    if (window.AuthApp) {
+                        AuthApp.logout();
+                    } else {
+                        window.location.href = '../login.html';
+                    }
+                });
+            }
+    
+            // Khởi tạo DocumentManagement
+            if (window.DocumentManagement && typeof DocumentManagement.init === 'function') {
+                await DocumentManagement.init();
+            } else {
+                console.error("DocumentManagement không được định nghĩa");
+            }
+        });
+    </script>
+</body>
 </html>

@@ -78,7 +78,7 @@ const UploadDocument = {
             }
             
             // Check if user is a teacher
-            if (user.role !== 'teacher' && user.role !== 'admin') {
+            if (user.role !== 'dean' && user.role !== 'teacher' && user.role !== 'admin') {
                 alert("Bạn không có quyền tải lên tài liệu. Chỉ giảng viên mới có thể thực hiện chức năng này.");
                 window.location.href = "index.html";
                 return false;
@@ -224,7 +224,7 @@ const UploadDocument = {
             descriptionInput: document.getElementById('description'),
             fileInput: document.getElementById('documentFile'),
             isPublicInput: document.getElementById('isPublic'),
-            facultyInput: document.getElementById('facultyId'),
+            facultyInput: document.getElementById('courseId'),
             subjectInput: document.getElementById('subjectId')
         };
 
@@ -250,7 +250,7 @@ const UploadDocument = {
                 description: elements.descriptionInput.value.trim(),
                 file: elements.fileInput.files[0],
                 isPublic: elements.isPublicInput.checked,
-                facultyId: elements.facultyInput.value.trim(),
+                courseId: elements.facultyInput.value.trim(),
                 subjectId: elements.subjectInput.value.trim()
             };
     
@@ -263,7 +263,7 @@ const UploadDocument = {
                 formData.title, 
                 formData.description, 
                 formData.isPublic, 
-                formData.facultyId,
+                formData.courseId,
                 formData.subjectId,
                 this.fileHash
             );
@@ -274,7 +274,8 @@ const UploadDocument = {
                     formData.description, 
                     uploadResult.documentHash,
                     formData.isPublic, 
-                    formData.facultyId,
+                    formData.courseId,
+                    formData.subjectId, 
                     uploadResult.documentId
                 );
                 alert("Tài liệu đã được tải lên thành công!");
@@ -310,6 +311,7 @@ const UploadDocument = {
             formData.append('isPublic', isPublic);
             formData.append('courseId', courseId || "");
             formData.append('contentHash', contentHash || "");
+            formData.append('subjectId', subjectId || "");
 
             console.log("Sending request to /api/upload-document...");
             const response = await fetch('http://localhost:3000/api/upload-document', {
@@ -340,31 +342,60 @@ const UploadDocument = {
         }
     },
 
-    registerDocumentOnBlockchain: async function(title, description, documentHash, isPublic, courseId, documentId) {
+    async registerDocumentOnBlockchain(title, description, documentHash, isPublic, courseId, subjectId, documentId) {
+        console.log("📌 Dữ liệu truyền vào blockchain:", { 
+            title, description, documentHash, isPublic, courseId, subjectId, documentId 
+        });
+        
+        // Kiểm tra và thiết lập giá trị mặc định
+        if (courseId === undefined || courseId === null) courseId = "";
+        if (subjectId === undefined || subjectId === null) subjectId = "";
+        
         try {
-            console.log("Registering document metadata on blockchain...");
-            console.log({title, description, documentHash, isPublic, courseId, documentId});
+            const role = await this.contracts.CourseDocument.methods.getUserRole(this.account).call();
+            console.log("User role from blockchain:", role);
             
-            // Call the smart contract method to upload document metadata
-            await this.contracts.CourseDocument.methods
-                .uploadDocument(
-                    title,
-                    description,
-                    documentHash,
-                    documentId, // Store the MongoDB document ID
-                    isPublic,
-                    courseId || ""
-                )
-                .send({ from: this.account, gas: 3000000 });
+            const allowedRoles = ["admin", "teacher", "dean"];
+            if (!allowedRoles.includes(role)) {
+                throw new Error(`Tài khoản không có quyền tải lên tài liệu. Vai trò hiện tại: ${role}. Vai trò được phép: ${allowedRoles.join(", ")}`);
+            }
+    
+            // Kiểm tra xem method uploadDocument có tồn tại không
+            if (!this.contracts.CourseDocument.methods.uploadDocument) {
+                throw new Error("Phương thức uploadDocument không tồn tại trong smart contract");
+            }
+    
+            console.log("Ước tính gas cho giao dịch...");
             
-            console.log("Document metadata registered on blockchain successfully");
+            // Thêm tham số subjectId nếu hàm uploadDocument trong smart contract yêu cầu
+            const gasEstimate = await this.contracts.CourseDocument.methods
+                .uploadDocument(title, description, documentHash, documentId, isPublic, courseId, subjectId)
+                .estimateGas({ from: this.account });
+            
+            console.log("Estimated gas:", gasEstimate);
+            console.log("Sending transaction with 1.5x gas estimate:", Math.floor(gasEstimate * 1.5));
+    
+            const tx = await this.contracts.CourseDocument.methods
+                .uploadDocument(title, description, documentHash, documentId, isPublic, courseId, subjectId)
+                .send({ 
+                    from: this.account, 
+                    gas: Math.floor(gasEstimate * 1.5) 
+                });
+                
+            console.log("Transaction successful:", tx);
             return true;
         } catch (error) {
-            console.error("Error registering document on blockchain:", error);
+            console.error("Full error details:", error);
+            
+            // Log chi tiết hơn về lỗi
+            if (error.message && error.message.includes("execution reverted")) {
+                console.error("Smart contract rejection:", error.message);
+            }
+            
             throw new Error("Blockchain registration failed: " + error.message);
         }
     },
-
+    
     loadCourses: async function() {
         try {
             // Get course dropdown element

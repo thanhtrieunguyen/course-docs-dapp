@@ -2,6 +2,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         console.log("Checking login status...");
         
+        // Thêm cờ để phát hiện vòng lặp tải lại trang
+        const reloadCount = sessionStorage.getItem('reloadCount') || 0;
+        sessionStorage.setItem('reloadCount', parseInt(reloadCount) + 1);
+        console.log(`Trang đã tải ${parseInt(reloadCount) + 1} lần`);
+        
+        // Nếu đã tải quá nhiều lần, tạm dừng kiểm tra đăng nhập
+        if (parseInt(reloadCount) > 5) {
+            console.log("Phát hiện tải lại quá nhiều lần, tạm dừng kiểm tra đăng nhập");
+            sessionStorage.removeItem('reloadCount');
+            return; // Dừng lại để tránh vòng lặp vô hạn
+        }
+        
         // Kiểm tra thông tin trong localStorage trước
         const userAuth = localStorage.getItem('userAuth');
         if (!userAuth) {
@@ -70,23 +82,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log("Thông tin đăng nhập hợp lệ, tiếp tục khởi tạo AuthApp");
         } catch (error) {
             console.error("Error during token validation:", error);
-            redirectToLogin();
-            return;
+            // Không redirect khi lỗi kết nối API để tránh vòng lặp
+            console.log("Bỏ qua lỗi API và tiếp tục với thông tin hiện có");
         }
         
-        // Khởi tạo Auth App và kiểm tra với blockchain
-        await AuthApp.init();
-        
-        // Kiểm tra trạng thái đăng nhập với blockchain
-        const loginStatus = await AuthApp.checkLoginStatus();
-        
-        if (!loginStatus.loggedIn) {
-            console.log("Không còn đăng nhập trên blockchain:", loginStatus.error);
-            redirectToLogin();
-            return;
+        // Khởi tạo Auth App nhưng bỏ qua các event listener có thể gây vòng lặp
+        if (!window.authAppInitialized) {
+            await initAuthAppSafely();
         }
-        
-        console.log("Đăng nhập hợp lệ, hiển thị thông tin người dùng");
         
         // Hiển thị thông tin người dùng đã đăng nhập
         if (document.getElementById('userInfo')) {
@@ -106,7 +109,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelectorAll('.logout-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
-                AuthApp.logout();
+                localStorage.removeItem('userAuth');
+                localStorage.removeItem('token');
                 window.location.href = "login.html";
             });
         });
@@ -118,6 +122,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.href = "dashboard.html";
             return;
         }
+
+        // Đặt lại bộ đếm reload sau khi mọi thứ đã ổn
+        sessionStorage.removeItem('reloadCount');
         
     } catch (error) {
         console.error("Lỗi khi kiểm tra đăng nhập:", error);
@@ -125,6 +132,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         redirectToLogin();
     }
 });
+
+// Hàm khởi tạo AuthApp an toàn hơn
+async function initAuthAppSafely() {
+    try {
+        window.authAppInitialized = true;
+        
+        // Khởi tạo Web3 mà không gắn các event listener
+        if (!AuthApp.web3) {
+            try {
+                if (window.ethereum) {
+                    AuthApp.web3Provider = window.ethereum;
+                    try {
+                        await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    } catch (error) {
+                        console.error("User denied account access");
+                        return false;
+                    }
+                } else if (window.web3) {
+                    AuthApp.web3Provider = window.web3.currentProvider;
+                } else {
+                    AuthApp.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
+                }
+                
+                AuthApp.web3 = new Web3(AuthApp.web3Provider);
+                
+                // Khởi tạo contract
+                const response = await fetch('../contracts/Auth.json');
+                const authArtifact = await response.json();
+                
+                const networkId = await AuthApp.web3.eth.net.getId();
+                const deployedNetwork = authArtifact.networks[networkId];
+                
+                if (!deployedNetwork) {
+                    console.error(`Không tìm thấy contract trên network ID: ${networkId}`);
+                    return false;
+                }
+                
+                AuthApp.contracts.Auth = new AuthApp.web3.eth.Contract(
+                    authArtifact.abi,
+                    deployedNetwork.address
+                );
+                
+                // Lấy tài khoản hiện tại
+                const accounts = await AuthApp.web3.eth.getAccounts();
+                if (accounts.length > 0) {
+                    AuthApp.account = accounts[0];
+                }
+                
+                console.log("Khởi tạo AuthApp an toàn thành công");
+                return true;
+            } catch (error) {
+                console.error("Lỗi khởi tạo AuthApp:", error);
+                return false;
+            }
+        }
+    } catch (error) {
+        console.error("Lỗi trong initAuthAppSafely:", error);
+        return false;
+    }
+}
 
 let redirecting = false;
 
@@ -145,7 +212,8 @@ function translateRole(role) {
     const roles = {
         'admin': 'Quản trị viên',
         'teacher': 'Giảng viên',
-        'student': 'Học viên'
+        'student': 'Học viên',
+        'dean': 'Trưởng khoa',
     };
     
     return roles[role] || role;

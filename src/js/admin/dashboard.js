@@ -43,7 +43,7 @@ const AdminDashboard = {
             if (!this.account || !this.contracts.auth) return false;
             const role = await this.contracts.auth.methods.getUserRole(this.account).call();
             console.log("Current account role:", role);
-            return role === 'admin';
+            return role === 'admin' || role === 'dean'; // Check for both admin and dean roles
         } catch (error) {
             console.error("Error verifying admin access:", error);
             return false;

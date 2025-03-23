@@ -288,14 +288,14 @@ contract CourseDocument is Pausable, Ownable {
     }
 
     // Modify onlyInstructor modifier to check user role
-    modifier onlyInstructor() {
-        require(
-            keccak256(abi.encodePacked(authContract.getUserRole(msg.sender))) ==
-                keccak256(abi.encodePacked("teacher")),
-            "Caller is not an instructor"
-        );
-        _;
-    }
+modifier onlyInstructor() {
+    require(
+        keccak256(abi.encodePacked(authContract.getUserRole(msg.sender))) == keccak256(abi.encodePacked("teacher")) || 
+        keccak256(abi.encodePacked(authContract.getUserRole(msg.sender))) == keccak256(abi.encodePacked("dean")),
+        "Caller is not an instructor"
+    );
+    _;
+}
 
     modifier onlyAdminOrInstructor() {
         string memory role = authContract.getUserRole(msg.sender);
@@ -309,6 +309,16 @@ contract CourseDocument is Pausable, Ownable {
         _;
     }
 
+        modifier onlyAuthorizedUploader() {
+            string memory role = authContract.getUserRole(msg.sender);
+            require(
+                (keccak256(abi.encodePacked(role)) == keccak256(abi.encodePacked("admin"))) ||
+                (keccak256(abi.encodePacked(role)) == keccak256(abi.encodePacked("teacher"))) ||
+                (keccak256(abi.encodePacked(role)) == keccak256(abi.encodePacked("dean"))),
+                "Caller must be admin, teacher, or dean"
+            );
+            _;
+        }
     function pauseSystem() public onlyAdmin {
         _pause();
     }
@@ -430,14 +440,14 @@ contract CourseDocument is Pausable, Ownable {
     // Add a circuit breaker (emergency stop) pattern
     bool public contractPaused = false;
 
-    function uploadDocument(
-        string memory _title,
-        string memory _description,
-        string memory _documentHash,
-        string memory _mongoDbId,
-        bool _isPublic,
-        string memory _courseId
-    ) public whenNotPaused onlyInstructor {
+        function uploadDocument(
+            string memory _title,
+            string memory _description,
+            string memory _documentHash,
+            string memory _mongoDbId,
+            bool _isPublic,
+            string memory _courseId
+        ) public whenNotPaused onlyAuthorizedUploader {
         // Check if course exists and is active if courseId provided
         if (bytes(_courseId).length > 0) {
             require(

@@ -6,6 +6,7 @@ contract("CourseDocument", (accounts) => {
   const instructor1 = accounts[1];
   const instructor2 = accounts[2];
   const student = accounts[3];
+  const dean = accounts[4];
   
   let courseDocInstance;
   let authInstance;
@@ -26,6 +27,7 @@ contract("CourseDocument", (accounts) => {
     await authInstance.register("Admin User", "instructor", { from: admin });
     await authInstance.register("Professor Smith", "instructor", { from: instructor1 });
     await authInstance.register("John Student", "student", { from: student });
+    await authInstance.register("John Student", "dean", { from: dean });
     
     // Add instructor2 manually
     await courseDocInstance.addInstructor(instructor2, { from: admin });

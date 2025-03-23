@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,9 +7,18 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="../css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="../css/permissions.css" rel="stylesheet">
 </head>
+<body class="bg-gray-100" id="adminBody">
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = JSON.parse(localStorage.getItem('userAuth') || '{}');
+            if (user && user.role) {
+                document.getElementById('adminBody').setAttribute('data-role', user.role);
+            }
+        });
+    </script>
 
-<body class="bg-gray-100">
     <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between h-16">
@@ -19,33 +27,29 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <span id="accountAddress" class="text-sm text-gray-600"></span>
-                    <a href="../index.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
-                        Trang chính
-                    </a>
-                    <button onclick="AuthApp.logout(); window.location.href='../login.html';" id="logoutButton"
-                        class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
+                    <a href="../index.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Trang chính</a>
+                    <button onclick="AuthApp.logout();" class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Admin Menu -->
     <div class="bg-white shadow-md">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex space-x-8">
                 <a href="dashboard.html" class="px-3 py-4 text-blue-600 border-b-2 border-blue-600 font-medium">
                     <i class="fas fa-tachometer-alt mr-2"></i>Tổng quan
                 </a>
-                <a href="user-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="user-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-only">
                     <i class="fas fa-users mr-2"></i>Quản lý người dùng
                 </a>
-                <a href="role-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="role-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-only">
                     <i class="fas fa-user-shield mr-2"></i>Phân quyền hệ thống
                 </a>
-                <a href="document-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="document-management.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-dean-only">
                     <i class="fas fa-book mr-2"></i>Quản lý tài liệu
                 </a>
-                <a href="cauhinh.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium">
+                <a href="cauhinh.html" class="px-3 py-4 text-gray-500 hover:text-blue-600 font-medium admin-only">
                     <i class="fas fa-cog mr-2"></i>Cấu hình hệ thống
                 </a>
             </div>
@@ -53,7 +57,6 @@
     </div>
 
     <div class="max-w-7xl mx-auto px-4 py-8">
-        <!-- Dashboard Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
                 <div class="flex items-center">
@@ -66,7 +69,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-green-100 text-green-500 mr-4">
@@ -78,7 +80,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
@@ -90,8 +91,7 @@
                     </div>
                 </div>
             </div>
-
-            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500 admin-dean-only">
                 <div class="flex items-center">
                     <div class="p-3 rounded-full bg-red-100 text-red-500 mr-4">
                         <i class="fas fa-exclamation-triangle text-xl"></i>
@@ -104,31 +104,27 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- User Management Section -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+            <div class="bg-white p-6 rounded-lg shadow-md user-management-section admin-only">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold">Quản lý người dùng</h2>
-                    <a href="user-management.html" class="text-blue-500 hover:text-blue-700 text-sm">Xem tất cả</a>
+                    <a href="#" class="text-blue-500 hover:text-blue-700 text-sm">Xem tất cả</a>
                 </div>
                 <div class="mb-4">
-                    <input type="text" id="userSearchInput" placeholder="Tìm kiếm người dùng..."
-                        class="w-full p-2 border rounded">
+                    <input type="text" id="userSearchInput" placeholder="Tìm kiếm người dùng..." class="w-full p-2 border rounded">
                 </div>
                 <div id="usersList" class="divide-y max-h-96 overflow-y-auto">
                     <!-- Users will be loaded here -->
                 </div>
             </div>
 
-            <!-- Content Management Section -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="bg-white p-6 rounded-lg shadow-md admin-dean-only">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold">Quản lý nội dung</h2>
                     <a href="document-management.html" class="text-blue-500 hover:text-blue-700 text-sm">Xem tất cả</a>
                 </div>
                 <div class="mb-4">
-                    <input type="text" id="contentSearchInput" placeholder="Tìm kiếm tài liệu..."
-                        class="w-full p-2 border rounded">
+                    <input type="text" id="contentSearchInput" placeholder="Tìm kiếm tài liệu..." class="w-full p-2 border rounded">
                 </div>
                 <div id="documentsList" class="divide-y max-h-96 overflow-y-auto">
                     <!-- Documents will be loaded here -->
@@ -137,8 +133,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-            <!-- Report Management Section -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="bg-white p-6 rounded-lg shadow-md admin-dean-only">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold">Quản lý báo cáo vi phạm</h2>
                     <a href="#" class="text-blue-500 hover:text-blue-700 text-sm">Xem tất cả</a>
@@ -148,18 +143,15 @@
                 </div>
             </div>
 
-            <!-- System Settings Section -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="bg-white p-6 rounded-lg shadow-md system-settings-section admin-only">
                 <h2 class="text-lg font-semibold mb-4">Cấu hình hệ thống</h2>
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">Trạng thái hệ thống</label>
                     <div class="flex items-center">
-                        <button id="pauseSystemBtn"
-                            class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 mr-2">
+                        <button id="pauseSystemBtn" class="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 mr-2">
                             <i class="fas fa-pause mr-2"></i>Tạm dừng
                         </button>
-                        <button id="resumeSystemBtn"
-                            class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">
+                        <button id="resumeSystemBtn" class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">
                             <i class="fas fa-play mr-2"></i>Kích hoạt
                         </button>
                     </div>
@@ -179,10 +171,8 @@
                             </div>
                             <div class="flex">
                                 <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="teacherUploadPermission" class="sr-only peer" checked>
-                                    <div
-                                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
-                                    </div>
+                                    <input type="checkbox" id="deanReviewPermission" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                 </label>
                             </div>
                         </div>
@@ -194,13 +184,10 @@
                             <div class="flex">
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" id="teacherUploadPermission" class="sr-only peer" checked>
-                                    <div
-                                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
-                                    </div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                 </label>
                             </div>
                         </div>
-
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
                             <div>
                                 <p class="font-medium">Học viên</p>
@@ -209,9 +196,7 @@
                             <div class="flex">
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" id="studentReviewPermission" class="sr-only peer" checked>
-                                    <div
-                                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
-                                    </div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                 </label>
                             </div>
                         </div>
@@ -222,8 +207,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="../js/role-permissions.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/admin/dashboard.js"></script>
 </body>
-
 </html>
