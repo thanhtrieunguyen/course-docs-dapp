@@ -180,8 +180,11 @@
                             setTimeout(() => {
                                 // Kiểm tra vai trò để chuyển hướng phù hợp
                                 const user = JSON.parse(localStorage.getItem('userAuth'));
-                                if (user && user.role === 'admin' || user.role === 'dean' ) {
+                                if (user && user.role === 'admin') {
                                     window.location.href = redirectUrl || 'admin/dashboard.html';
+                                }
+                                else if(user && user.role === 'dean'){
+                                    window.location.href = redirectUrl || 'admin/document-management.html';
                                 } else {
                                     window.location.href = redirectUrl || 'index.html';
                                 }

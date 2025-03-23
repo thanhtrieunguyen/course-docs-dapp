@@ -3,13 +3,19 @@
     transition: all 0.3s ease;
 }
 
+/* .admin-only,
+.admin-dean-only {
+    display: none;
+} */
+
 .document-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Custom form styles */
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
     outline: none;
     border-color: #4299e1;
     box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
@@ -26,8 +32,13 @@ input:focus, textarea:focus {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* Responsive adjustments */
