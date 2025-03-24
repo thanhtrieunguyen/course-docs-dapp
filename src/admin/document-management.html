@@ -26,7 +26,7 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <span id="accountAddress" class="text-sm text-gray-600"></span>
-                    <a href="dashboard.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                    <a href="document-management.html" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
                         Bảng điều khiển
                     </a>
                     <button id="logoutBtn" class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
@@ -65,7 +65,7 @@
                         <option value="">Tất cả khóa học</option>
                     </select>
                     <button id="addDocumentBtn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded admin-dean-only">
-                        <i class="fas fa-plus mr-2"></i>Thêm tài liệu mới
+                        <a href="/"><i class="fas fa-plus mr-2"></i>Thêm tài liệu mới</a>
                     </button>
                 </div>
             </div>
@@ -75,9 +75,9 @@
                         <tr>
                             <th class="py-2 px-4 border-b text-left">Tiêu đề</th>
                             <th class="py-2 px-4 border-b text-left">Người tải lên</th>
-                            <th class="py-2 px-4 border-b text-left">Khóa học</th>
-                            <th class="py-2 px-4 border-b text-left">Trạng thái</th>
+                            <th class="py-2 px-4 border-b text-left">Khoa</th>
                             <th class="py-2 px-4 border-b text-left">Ngày tải lên</th>
+                            <th class="py-2 px-4 border-b text-left">Trạng thái</th>
                             <th class="py-2 px-4 border-b text-left">Hành động</th>
                         </tr>
                     </thead>
@@ -125,19 +125,24 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                            <label for="editCourse" class="block text-sm font-medium text-gray-700 mb-1">Khóa học</label>
+                            <label for="editCourse" class="block text-sm font-medium text-gray-700 mb-1">Khoa</label>
                             <select id="editCourse" class="w-full border rounded px-3 py-2">
-                                <option value="">Không thuộc khóa học nào</option>
+                                <option value="NaN">Không thuộc khoa nào</option>
+                                <option value="CNTT">Công Nghệ thông tin</option>
+                                <option value="KTHK">Khai Thác hàng không </option>
+                                <option value="DLLH">Du lịch lữ hành</option>
+                                <option value="QTKD">Quản trị kinh doanh</option>
+                                <option value="other">Khác</option>
                             </select>
                         </div>
                         <div>
-                            <label for="editCategory" class="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                            <label for="editCategory" class="block text-sm font-medium text-gray-700 mb-1">Môn học</label>
                             <select id="editCategory" class="w-full border rounded px-3 py-2">
-                                <option value="">Chọn danh mục</option>
-                                <option value="lecture">Bài giảng</option>
-                                <option value="assignment">Bài tập</option>
-                                <option value="reference">Tài liệu tham khảo</option>
-                                <option value="exam">Đề thi</option>
+                                <option value="NaN">Chọn môn</option>
+                                <option value="lecture">Khai thác dữ liệu</option>
+                                <option value="assignment">Tiếng anh 2</option>
+                                <option value="reference">Thực tập tốt nghiệp</option>
+                                <option value="exam">BlockChain</option>
                                 <option value="other">Khác</option>
                             </select>
                         </div>
@@ -252,9 +257,17 @@
                         <input type="text" id="newTitle" class="w-full border rounded px-3 py-2" required>
                     </div>
                     <div>
-                        <label for="newCourse" class="block text-sm font-medium text-gray-700 mb-1">Khóa học</label>
+                        <label for="newCourse" class="block text-sm font-medium text-gray-700 mb-1">Khoa</label>
                         <select id="newCourse" class="w-full border rounded px-3 py-2">
-                            <option value="">Không thuộc khóa học nào</option>
+                            <option value="NaN">-- Vui lòng chọn khoa --</option>
+                            <option value="CNTT">Công Nghệ Thông Tin</option>
+                            <option value="KTHK">Khai Thác Hàng Không</option>
+                            <option value="DLLH">Du Lịch Lữ Hành</option>
+                            <option value="QTKD">Quản Trị Kinh Doanh</option>
+                            <option value="KTDT">Kỹ Thuật Điện Tử</option>
+                            <option value="KTDL">Kỹ Thuật Điện Lạnh</option>
+                            <option value="NN">Ngoại Ngữ</option>
+                            <option value="other">Khác</option>
                         </select>
                     </div>
                 </div>
@@ -264,13 +277,13 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label for="newCategory" class="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                        <label for="newCategory" class="block text-sm font-medium text-gray-700 mb-1">Môn học</label>
                         <select id="newCategory" class="w-full border rounded px-3 py-2">
-                            <option value="">Chọn danh mục</option>
-                            <option value="lecture">Bài giảng</option>
-                            <option value="assignment">Bài tập</option>
-                            <option value="reference">Tài liệu tham khảo</option>
-                            <option value="exam">Đề thi</option>
+                            <option value="NaN">-- Chọn môn học --</option>
+                            <option value="lecture">Khai thác dữ liệu</option>
+                            <option value="assignment">Tiếng Anh 2</option>
+                            <option value="reference">Thực tập tốt nghiệp</option>
+                            <option value="exam">BlockChain</option>
                             <option value="other">Khác</option>
                         </select>
                     </div>
@@ -308,20 +321,15 @@
         </div>
     </div>
 
-    
-    
-    
     <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
     <script src="../js/role-permissions.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/admin/document-management.js"></script>
     <script type="text/javascript">
         document.addEventListener('DOMContentLoaded', async function() {
-            // Chờ AuthApp khởi tạo
             await AuthApp.init();
             console.log("AuthApp đã sẵn sàng:", AuthApp.account);
     
-            // Gắn sự kiện logout
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', function() {
@@ -333,11 +341,12 @@
                 });
             }
     
-            // Khởi tạo DocumentManagement
             if (window.DocumentManagement && typeof DocumentManagement.init === 'function') {
+                console.log("Bắt đầu khởi tạo DocumentManagement...");
                 await DocumentManagement.init();
+                console.log("DocumentManagement đã khởi tạo thành công");
             } else {
-                console.error("DocumentManagement không được định nghĩa");
+                console.error("DocumentManagement không được định nghĩa hoặc không có hàm init");
             }
         });
     </script>

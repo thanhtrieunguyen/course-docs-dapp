@@ -952,8 +952,6 @@ app.post('/api/upload-document', authenticateToken, upload.single('file'), async
         });
     }
 });
-
-// Add endpoint to retrieve document content
 app.get('/api/document/:documentId', authenticateToken, async (req, res) => {
     try {
         const { documentId } = req.params;
@@ -1517,4 +1515,60 @@ app.get('/api/document/:id', authenticateToken, async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+});
+
+app.delete('/api/document/:documentId', authenticateToken, async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const document = await Document.findOne({ documentId });
+        if (!document) return res.status(404).json({ success: false, error: 'Document not found' });
+
+        const hasAccess = document.owner === req.user.address || req.user.role === 'admin' || req.user.role === 'dean';
+        if (!hasAccess) return res.status(403).json({ success: false, error: 'No permission' });
+
+        await Document.deleteOne({ documentId });
+        res.json({ success: true, message: 'Document deleted' });
+    } catch (error) {
+        console.error('Error deleting document:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete document: ' + error.message });
+    }
+});
+
+app.put('/api/document/:documentId', authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const document = await Document.findOne({ documentId });
+        if (!document) {
+            return res.status(404).json({ success: false, error: 'Document not found' });
+        }
+
+        const hasAccess = document.owner === req.user.address || req.user.role === 'admin' || req.user.role === 'dean';
+        if (!hasAccess) {
+            return res.status(403).json({ success: false, error: 'You do not have permission to update this document' });
+        }
+
+        const updates = {
+            title: req.body.title || document.title,
+            description: req.body.description || document.description,
+            courseId: req.body.courseId || document.courseId,
+            category: req.body.category || document.category,
+            isPublic: req.body.isPublic === 'true' ? true : req.body.isPublic === 'false' ? false : document.isPublic,
+            isVerified: req.body.isVerified === 'true' ? true : req.body.isVerified === 'false' ? false : document.isVerified,
+            isFeatured: req.body.isFeatured === 'true' ? true : req.body.isFeatured === 'false' ? false : document.isFeatured,
+            isArchived: req.body.isArchived === 'true' ? true : req.body.isArchived === 'false' ? false : document.isArchived
+        };
+
+        if (req.file) {
+            updates.fileContent = req.file.buffer;
+            updates.fileName = req.file.originalname;
+            updates.fileType = req.file.mimetype;
+            updates.fileSize = req.file.size;
+        }
+
+        const updatedDoc = await Document.findOneAndUpdate({ documentId }, updates, { new: true });
+        res.json({ success: true, document: updatedDoc });
+    } catch (error) {
+        console.error('Error updating document:', error);
+        res.status(500).json({ success: false, error: 'Failed to update document: ' + error.message });
+    }
 });

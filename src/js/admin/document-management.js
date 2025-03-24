@@ -11,6 +11,8 @@ const DocumentManagement = {
     modalCallback: null,
 
     init: async function () {
+        this.setupEventListeners();
+        await this.loadDocuments();
         try {
             // Initialize web3
             if (window.ethereum) {
@@ -38,17 +40,9 @@ const DocumentManagement = {
             //     window.location.href = "../login.html";
             //     return;
             // }
-            
-            // Initialize contracts
             await this.initContract();
-            
-            // Load courses for filter and edit form
             await this.loadCourses();
-            
-            // Load documents
             await this.loadDocuments();
-            
-            // Setup event handlers
             this.setupEventListeners();
             
         } catch (error) {
@@ -160,47 +154,21 @@ const DocumentManagement = {
     loadDocuments: async function() {
         try {
             const tbody = document.getElementById('documentTableBody');
-            if (!tbody) {
-                console.error('Table body element not found');
-                return;
-            }
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4">Đang tải dữ liệu...</td></tr>';
 
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Đang tải dữ liệu...</td></tr>';
-
-            // Lấy và kiểm tra token
-            const userAuth = localStorage.getItem('userAuth');
-            if (!userAuth) {
+            const userAuth = JSON.parse(localStorage.getItem('userAuth'));
+            if (!userAuth?.token) {
                 this.handleAuthError();
                 return;
             }
 
-            const auth = JSON.parse(userAuth);
-            if (!auth.token || !auth.timestamp) {
-                this.handleAuthError();
-                return;
-            }
-
-            // Kiểm tra thời hạn token (24h)
-            const now = Date.now();
-            const tokenAge = now - auth.timestamp;
-            if (tokenAge > 24 * 60 * 60 * 1000) { // 24 hours
-                this.handleAuthError('Token đã hết hạn');
-                return;
-            }
-
-            // Gọi API với token
             const response = await fetch('/api/admin/documents', {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${auth.token}`,
+                    'Authorization': `Bearer ${userAuth.token}`,
                     'Content-Type': 'application/json'
                 }
             });
-
-            if (response.status === 403) {
-                this.handleAuthError('Token không hợp lệ hoặc đã hết hạn');
-                return;
-            }
 
             if (!response.ok) {
                 const errorData = await response.json();
@@ -208,47 +176,49 @@ const DocumentManagement = {
             }
 
             const result = await response.json();
-            
-            if (!result.success) {
-                throw new Error(result.error || 'Lỗi khi tải dữ liệu');
+            if (!result.success || !Array.isArray(result.documents)) {
+                throw new Error(result.error || 'Dữ liệu tài liệu không hợp lệ');
             }
 
             this.documents = result.documents;
+            console.log('Loaded documents:', this.documents);
 
-            // Render documents table
-            const tableRows = this.documents.map(doc => {
-                return `
-                    <tr data-document-id="${doc.id}">
-                        <td class="p-2">${doc.title}</td>
-                        <td class="p-2">${doc.ownerName}</td>
-                        <td class="p-2">${doc.isPublic ? 'Công khai' : 'Riêng tư'}</td>
-                        <td class="p-2">${new Date(doc.uploadDate).toLocaleDateString()}</td>
-                        <td class="p-2 flex space-x-2">
-                            <button class="view-document-btn text-blue-600 hover:text-blue-800">
-                                Xem
-                            </button>
-                            <button class="edit-document-btn text-yellow-600 hover:text-yellow-800 mx-2">
-                                Sửa
-                            </button>
-                            <button class="delete-document-btn text-red-600 hover:text-red-800">
-                                Xóa
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            const tableRows = this.documents.map(doc => `
+                <tr data-document-id="${doc.documentId}">
+                    <td class="py-2 px-4">${doc.title || 'Không có tiêu đề'}</td>
+                    <td class="py-2 px-4">${doc.ownerName || 'Không xác định'}</td>
+                    <td class="py-2 px-4">${this.getCourseNameById(doc.courseId) || 'Không có'}</td>
+                    <td class="py-2 px-4">${doc.uploadDate ? new Date(doc.uploadDate).toLocaleString() : 'N/A'}</td>
+                    <td class="py-2 px-4">${this.getStatusText(doc)}</td>
+                    <td class="py-2 px-4 flex space-x-2">
+                        <button class="view-document-btn bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600" data-id="${doc.documentId}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="edit-document-btn bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600" data-id="${doc.documentId}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="delete-document-btn bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600" data-id="${doc.documentId}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
 
-            tbody.innerHTML = tableRows || '<tr><td colspan="5" class="text-center p-4">Không có tài liệu nào</td></tr>';
-
+            tbody.innerHTML = tableRows || '<tr><td colspan="6" class="text-center p-4">Không có tài liệu nào</td></tr>';
+            document.getElementById('documentCount').textContent = this.documents.length;
         } catch (error) {
-            console.error("Error loading documents:", error);
-            const tbody = document.getElementById('documentTableBody');
-            if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">
-                    Lỗi khi tải danh sách tài liệu: ${error.message}</td></tr>`;
-            }
+            console.error('Error loading documents:', error);
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-red-500">Lỗi: ${error.message}</td></tr>`;
             this.showStatus('error', 'Lỗi khi tải danh sách tài liệu: ' + error.message);
         }
+    },
+
+    getStatusText: function(doc) {
+        let status = [];
+        if (doc.isPublic) status.push('Công khai');
+        if (doc.isVerified) status.push('Đã xác thực');
+        if (doc.isFlagged) status.push('Đã gắn cờ');
+        return status.join(', ') || 'Riêng tư';
     },
 
     handleAuthError: function(message = 'Phiên đăng nhập đã hết hạn') {
@@ -275,258 +245,247 @@ const DocumentManagement = {
     },
     
     setupEventListeners: function() {
-        // Document table row actions (dùng delegation, không cần kiểm tra ID)
         document.addEventListener('click', (e) => {
-            const row = e.target.closest('tr');
-            if (!row || !row.dataset.documentId) return;
-            
-            const documentId = row.dataset.documentId;
-            
-            if (e.target.closest('.view-document-btn')) {
+            const viewBtn = e.target.closest('.view-document-btn');
+            const editBtn = e.target.closest('.edit-document-btn');
+            const deleteBtn = e.target.closest('.delete-document-btn');
+
+            if (viewBtn) {
+                const documentId = viewBtn.dataset.id || viewBtn.closest('tr')?.dataset.documentId;
+                console.log('View button clicked, documentId:', documentId);
+                if (!documentId) {
+                    this.showStatus('error', 'Không thể xác định tài liệu để xem');
+                    return;
+                }
                 this.viewDocument(documentId);
-            } else if (e.target.closest('.edit-document-btn')) {
+            } else if (editBtn) {
+                const documentId = editBtn.dataset.id || editBtn.closest('tr')?.dataset.documentId;
+                console.log('Edit button clicked, documentId:', documentId);
+                if (!documentId) {
+                    this.showStatus('error', 'Không thể xác định tài liệu để sửa');
+                    return;
+                }
                 this.editDocument(documentId);
-            } else if (e.target.closest('.delete-document-btn')) {
+            } else if (deleteBtn) {
+                const documentId = deleteBtn.dataset.id || deleteBtn.closest('tr')?.dataset.documentId;
+                console.log('Delete button clicked, documentId:', documentId);
+                if (!documentId) {
+                    this.showStatus('error', 'Không thể xác định tài liệu để xóa');
+                    return;
+                }
                 this.confirmDeleteDocument(documentId);
+            } else if (e.target.id === 'viewDocumentBtn') {
+                if (this.selectedDocument) {
+                    this.viewDocument(this.selectedDocument.documentId);
+                } else {
+                    this.showStatus('error', 'Vui lòng chọn một tài liệu trước');
+                }
+            } else if (e.target.id === 'deleteDocumentBtn') {
+                if (this.selectedDocument) {
+                    this.confirmDeleteDocument(this.selectedDocument.documentId);
+                } else {
+                    this.showStatus('error', 'Vui lòng chọn một tài liệu trước');
+                }
+            } else if (e.target.id === 'cancelEditBtn') {
+                this.cancelEdit();
+            } else if (e.target.id === 'cancelModalBtn') {
+                this.hideModal();
+            } else if (e.target.id === 'confirmModalBtn') {
+                if (this.modalCallback) {
+                    this.modalCallback();
+                    this.hideModal();
+                }
             }
         });
-        
-        // Cancel edit button
-        const cancelEditBtn = document.getElementById('cancelEditBtn');
-        if (cancelEditBtn) {
-            cancelEditBtn.addEventListener('click', () => this.cancelEdit());
-        } else {
-            console.warn("Element 'cancelEditBtn' not found in DOM");
-        }
-        
-        // Document action buttons
-        const viewDocumentBtn = document.getElementById('viewDocumentBtn');
-        if (viewDocumentBtn) {
-            viewDocumentBtn.addEventListener('click', () => {
-                if (this.selectedDocument) {
-                    this.viewDocument(this.selectedDocument.id);
-                }
-            });
-        } else {
-            console.warn("Element 'viewDocumentBtn' not found in DOM");
-        }
-        
-        const flagDocumentBtn = document.getElementById('flagDocumentBtn');
-        if (flagDocumentBtn) {
-            flagDocumentBtn.addEventListener('click', () => {
-                if (this.selectedDocument) {
-                    this.showFlagModal(this.selectedDocument.id);
-                }
-            });
-        } else {
-            console.warn("Element 'flagDocumentBtn' not found in DOM");
-        }
-        
-        const removeDocumentBtn = document.getElementById('removeDocumentBtn');
-        if (removeDocumentBtn) {
-            removeDocumentBtn.addEventListener('click', () => {
-                if (this.selectedDocument) {
-                    this.confirmDeleteDocument(this.selectedDocument.id);
-                }
-            });
-        } else {
-            console.warn("Element 'removeDocumentBtn' not found in DOM");
-        }
-        
-        // Edit document form submit
+
         const editDocumentForm = document.getElementById('editDocumentForm');
         if (editDocumentForm) {
             editDocumentForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.updateDocument();
             });
-        } else {
-            console.warn("Element 'editDocumentForm' not found in DOM");
         }
-        
-        // Confirm modal actions
-        const cancelModalBtn = document.getElementById('cancelModalBtn');
-        if (cancelModalBtn) {
-            cancelModalBtn.addEventListener('click', () => this.hideModal());
-        } else {
-            console.warn("Element 'cancelModalBtn' not found in DOM");
-        }
-        
-        const confirmModalBtn = document.getElementById('confirmModalBtn');
-        if (confirmModalBtn) {
-            confirmModalBtn.addEventListener('click', () => {
-                if (this.modalCallback) {
-                    this.modalCallback();
-                }
-                this.hideModal();
-            });
-        } else {
-            console.warn("Element 'confirmModalBtn' not found in DOM");
-        }
-        
-        // Flag modal actions
-        const cancelFlagBtn = document.getElementById('cancelFlagBtn');
-        if (cancelFlagBtn) {
-            cancelFlagBtn.addEventListener('click', () => {
-                document.getElementById('flagModal')?.classList.add('hidden');
-            });
-        } else {
-            console.warn("Element 'cancelFlagBtn' not found in DOM");
-        }
-        
-        const confirmFlagBtn = document.getElementById('confirmFlagBtn');
-        if (confirmFlagBtn) {
-            confirmFlagBtn.addEventListener('click', () => {
-                const reason = document.getElementById('flagReason')?.value;
-                if (this.selectedDocument) {
-                    this.flagDocument(this.selectedDocument.id, reason);
-                }
-                document.getElementById('flagModal')?.classList.add('hidden');
-            });
-        } else {
-            console.warn("Element 'confirmFlagBtn' not found in DOM");
-        }
-        
-        // Search and filter
+
         const searchDocument = document.getElementById('searchDocument');
-        if (searchDocument) {
-            searchDocument.addEventListener('input', () => this.filterDocuments());
-        } else {
-            console.warn("Element 'searchDocument' not found in DOM");
-        }
-        
+        if (searchDocument) searchDocument.addEventListener('input', () => this.filterDocuments());
+
         const filterStatus = document.getElementById('filterStatus');
-        if (filterStatus) {
-            filterStatus.addEventListener('change', () => this.filterDocuments());
-        } else {
-            console.warn("Element 'filterStatus' not found in DOM");
-        }
-        
+        if (filterStatus) filterStatus.addEventListener('change', () => this.filterDocuments());
+
         const filterCourse = document.getElementById('filterCourse');
-        if (filterCourse) {
-            filterCourse.addEventListener('change', () => this.filterDocuments());
-        } else {
-            console.warn("Element 'filterCourse' not found in DOM");
-        }
+        if (filterCourse) filterCourse.addEventListener('change', () => this.filterDocuments());
     },
     
     viewDocument: async function(documentId) {
         try {
-            const userAuth = localStorage.getItem('userAuth');
-            if (!userAuth) throw new Error('Không tìm thấy thông tin xác thực');
-            const auth = JSON.parse(userAuth);
-
-            // Check if document exists first
-            const doc = this.documents.find(d => d.id === documentId);
-            if (!doc) throw new Error('Không tìm thấy tài liệu');
-
-            const response = await fetch(`/api/documents/${documentId}/view`, {
+            const userAuth = JSON.parse(localStorage.getItem('userAuth'));
+            if (!userAuth?.token) throw new Error('Không tìm thấy thông tin xác thực');
+    
+            console.log('Viewing document with ID:', documentId);
+            console.log('Current documents array:', JSON.stringify(this.documents, null, 2)); // Hiển thị chi tiết
+            console.log('Using token:', userAuth.token);
+    
+            const doc = this.documents.find(d => d.documentId === documentId);
+            if (!doc) {
+                console.log('Document not found in local array:', documentId);
+                throw new Error('Không tìm thấy tài liệu trong danh sách hiện tại');
+            }
+            console.log('Found document:', doc);
+    
+            const response = await fetch(`/api/document/${documentId}`, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${auth.token}`
+                    'Authorization': `Bearer ${userAuth.token}`
                 }
             });
-
+    
+            console.log('API response status:', response.status, response.statusText);
             if (!response.ok) {
-                throw new Error('Không thể tải tài liệu');
+                const errorData = await response.text();
+                throw new Error(`Không thể tải tài liệu: ${response.status} ${response.statusText} - ${errorData}`);
             }
-
+    
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
-            window.open(url, '_blank');
+            const fileExtension = doc.fileType ? doc.fileType.split('/')[1] : 'pdf';
+            if (['pdf', 'txt'].includes(fileExtension)) {
+                window.open(url, '_blank');
+            } else {
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = doc.fileName || `${doc.title}.${fileExtension}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            window.URL.revokeObjectURL(url);
+    
+            this.showStatus('success', 'Đã mở tài liệu thành công');
         } catch (error) {
             console.error('Error viewing document:', error);
             this.showStatus('error', 'Không thể xem tài liệu: ' + error.message);
         }
     },
     
+    loadActivityLog: async function(documentId) {
+        const logDiv = document.getElementById('documentActivityLog');
+        logDiv.innerHTML = '<p class="text-gray-500 italic">Đang tải lịch sử hoạt động...</p>';
+
+        try {
+            const userAuth = JSON.parse(localStorage.getItem('userAuth'));
+            const response = await fetch(`/api/documents/${documentId}/activity`, {
+                headers: {
+                    'Authorization': `Bearer ${userAuth.token}`
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                const logs = result.logs || [];
+                logDiv.innerHTML = logs.length > 0 
+                    ? logs.map(log => `<p>${new Date(log.timestamp).toLocaleString()}: ${log.action}</p>`).join('')
+                    : '<p class="text-gray-500">Không có lịch sử hoạt động</p>';
+            }
+        } catch (error) {
+            logDiv.innerHTML = `<p class="text-red-500">Lỗi tải lịch sử: ${error.message}</p>`;
+        }
+    },
+
     editDocument: function(documentId) {
-        const doc = this.documents.find(d => d.id === documentId);
+        const doc = this.documents.find(d => d.documentId === documentId);
         if (!doc) {
-            this.showStatus('error', 'Không tìm thấy tài liệu');
+            this.showStatus('error', 'Không tìm thấy tài liệu để sửa');
+            this.loadDocuments(); // Làm mới danh sách
             return;
         }
-        
-        // Store selected document
+
         this.selectedDocument = doc;
-        
-        // Fill form with document data
-        document.getElementById('editDocumentId').value = doc.id;
-        document.getElementById('editTitle').value = doc.title;
-        document.getElementById('editDescription').value = doc.description;
-        document.getElementById('editOwner').value = doc.ownerName + ' (' + doc.owner.substr(0, 10) + '...)';
-        document.getElementById('editIsPublic').checked = doc.isPublic;
-        document.getElementById('editIsVerified').checked = doc.isVerified;
-        
-        // Set course if it exists
-        if (doc.courseId) {
-            const courseSelect = document.getElementById('editCourse');
-            for (let i = 0; i < courseSelect.options.length; i++) {
-                if (courseSelect.options[i].value === doc.courseId) {
-                    courseSelect.selectedIndex = i;
-                    break;
-                }
-            }
-        } else {
-            document.getElementById('editCourse').selectedIndex = 0;
-        }
-        
-        // Show edit form, hide placeholder
         document.getElementById('documentDetailForm').classList.remove('hidden');
         document.getElementById('noDocumentSelected').classList.add('hidden');
+
+        // Điền thông tin vào form
+        document.getElementById('editDocumentId').value = doc.documentId;
+        document.getElementById('editTitle').value = doc.title || '';
+        document.getElementById('editOwner').value = doc.ownerName || doc.owner || 'Không xác định';
+        document.getElementById('editDescription').value = doc.description || '';
+        document.getElementById('editCourse').value = doc.courseId || '';
+        document.getElementById('editCategory').value = doc.category || '';
+        document.getElementById('editIsPublic').checked = doc.isPublic || false;
+        document.getElementById('editIsVerified').checked = doc.isVerified || false;
+        document.getElementById('editIsFeatured').checked = doc.isFeatured || false;
+        document.getElementById('editIsArchived').checked = doc.isArchived || false;
     },
+
+
     
     cancelEdit: function() {
-        // Clear form fields
-        document.getElementById('editDocumentForm').reset();
-        
-        // Hide edit form, show placeholder
+        this.selectedDocument = null;
         document.getElementById('documentDetailForm').classList.add('hidden');
         document.getElementById('noDocumentSelected').classList.remove('hidden');
-        
-        // Clear selected document
-        this.selectedDocument = null;
     },
-    
+
     updateDocument: async function() {
         try {
-            if (!this.selectedDocument) {
-                throw new Error('Không có tài liệu nào được chọn');
+            const userAuth = JSON.parse(localStorage.getItem('userAuth'));
+            if (!userAuth?.token) throw new Error('Không tìm thấy thông tin xác thực');
+    
+            const documentId = document.getElementById('editDocumentId').value;
+            const updatedData = {
+                title: document.getElementById('editTitle').value,
+                description: document.getElementById('editDescription').value,
+                courseId: document.getElementById('editCourse').value,
+                category: document.getElementById('editCategory').value,
+                isPublic: document.getElementById('editIsPublic').checked,
+                isVerified: document.getElementById('editIsVerified').checked,
+                isFeatured: document.getElementById('editIsFeatured').checked,
+                isArchived: document.getElementById('editIsArchived').checked
+            };
+    
+            const fileInput = document.getElementById('editFile');
+            let formData = new FormData();
+            if (fileInput.files.length > 0) {
+                formData.append('file', fileInput.files[0]);
             }
-
-            const userAuth = localStorage.getItem('userAuth');
-            if (!userAuth) throw new Error('Không tìm thấy thông tin xác thực');
-            const auth = JSON.parse(userAuth);
-
-            const docId = this.selectedDocument.id;
-            const formData = new FormData();
-            formData.append('title', document.getElementById('editTitle').value);
-            formData.append('description', document.getElementById('editDescription').value);
-            formData.append('courseId', document.getElementById('editCourse').value);
-            formData.append('isPublic', document.getElementById('editIsPublic').checked);
-
-            const response = await fetch(`/api/documents/${docId}`, {
+            Object.entries(updatedData).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+    
+            const response = await fetch(`/api/document/${documentId}`, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `Bearer ${auth.token}`
+                    'Authorization': `Bearer ${userAuth.token}`
                 },
                 body: formData
             });
-
+    
+            console.log('API response status:', response.status, response.statusText);
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Không thể cập nhật tài liệu');
+                let errorData;
+                try {
+                    errorData = await response.json(); // Thử lấy JSON
+                } catch {
+                    errorData = await response.text(); // Nếu không phải JSON, lấy text
+                }
+                throw new Error(`Không thể cập nhật tài liệu: ${response.status} ${response.statusText} - ${typeof errorData === 'object' ? errorData.error : errorData}`);
             }
-
-            await this.loadDocuments();
+    
+            const result = await response.json();
+            const updatedDoc = result.document;
+    
+            const index = this.documents.findIndex(d => d.documentId === documentId);
+            if (index !== -1) {
+                this.documents[index] = { ...this.documents[index], ...updatedDoc };
+            }
+    
+            this.showStatus('success', 'Đã cập nhật tài liệu thành công');
             this.cancelEdit();
-            this.showStatus('success', 'Cập nhật tài liệu thành công');
-
+            await this.loadDocuments();
         } catch (error) {
             console.error('Error updating document:', error);
-            this.showStatus('error', 'Lỗi khi cập nhật tài liệu: ' + error.message);
+            this.showStatus('error', 'Không thể cập nhật tài liệu: ' + error.message);
         }
     },
+
     
     showFlagModal: function(documentId) {
         const doc = this.documents.find(d => d.id === documentId);
@@ -567,60 +526,45 @@ const DocumentManagement = {
     },
     
     confirmDeleteDocument: function(documentId) {
-        const doc = this.documents.find(d => d.id === documentId);
+        const doc = this.documents.find(d => d.documentId === documentId);
         if (!doc) {
-            this.showStatus('error', 'Không tìm thấy tài liệu');
+            this.showStatus('error', 'Không tìm thấy tài liệu để xóa');
             return;
         }
-        
-        // Store selected document
-        this.selectedDocument = doc;
-        
-        // Set modal content
+
+        const modal = document.getElementById('confirmModal');
         document.getElementById('modalTitle').textContent = 'Xác nhận xóa tài liệu';
-        document.getElementById('modalMessage').textContent = 
-            `Bạn có chắc chắn muốn xóa tài liệu "${doc.title}"?`;
-        
-        // Set callback
-        this.modalCallback = function() {
-            DocumentManagement.deleteDocument(documentId);
-        };
-        
-        // Show modal
-        this.showModal();
+        document.getElementById('modalMessage').textContent = `Bạn có chắc chắn muốn xóa tài liệu "${doc.title}" không?`;
+        modal.classList.remove('hidden');
+
+        this.modalCallback = () => this.deleteDocument(documentId);
     },
     
     deleteDocument: async function(documentId) {
         try {
-            const userAuth = localStorage.getItem('userAuth');
-            if (!userAuth) throw new Error('Không tìm thấy thông tin xác thực');
-            const auth = JSON.parse(userAuth);
+            const userAuth = JSON.parse(localStorage.getItem('userAuth'));
+            if (!userAuth?.token) throw new Error('Không tìm thấy thông tin xác thực');
 
-            const response = await fetch(`/api/documents/${documentId}`, {
+            const response = await fetch(`/api/document/${documentId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${auth.token}`,
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${userAuth.token}`
                 }
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Không thể xóa tài liệu');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Không thể xóa tài liệu');
             }
 
-            // Remove from local array
-            this.documents = this.documents.filter(doc => doc.id !== documentId);
-            
-            // Remove row from table
-            const row = document.querySelector(`tr[data-document-id="${documentId}"]`);
-            if (row) row.remove();
-
-            this.showStatus('success', 'Xóa tài liệu thành công');
-
+            // Xóa khỏi mảng documents
+            this.documents = this.documents.filter(d => d.documentId !== documentId);
+            this.showStatus('success', 'Đã xóa tài liệu thành công');
+            this.loadDocuments(); // Tải lại danh sách
+            this.cancelEdit();
         } catch (error) {
             console.error('Error deleting document:', error);
-            this.showStatus('error', 'Lỗi khi xóa tài liệu: ' + error.message);
+            this.showStatus('error', 'Không thể xóa tài liệu: ' + error.message);
         }
     },
     
@@ -690,25 +634,13 @@ const DocumentManagement = {
     },
     
     showStatus: function(type, message) {
-        const statusDiv = document.getElementById('statusMessage');
-        statusDiv.classList.remove('hidden', 'bg-green-100', 'bg-red-100', 'bg-yellow-100');
-        
-        if (type === 'success') {
-            statusDiv.classList.add('bg-green-100', 'text-green-800', 'border-green-300');
-        } else if (type === 'error') {
-            statusDiv.classList.add('bg-red-100', 'text-red-800', 'border-red-300');
-        } else if (type === 'warning') {
-            statusDiv.classList.add('bg-yellow-100', 'text-yellow-800', 'border-yellow-300');
-        }
-        
-        statusDiv.textContent = message;
-        statusDiv.classList.remove('hidden');
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            statusDiv.classList.add('hidden');
-        }, 5000);
-    }
+        const status = document.getElementById('statusMessage');
+        status.classList.remove('hidden', 'bg-red-100', 'bg-green-100', 'text-red-700', 'text-green-700');
+        status.classList.add(type === 'error' ? 'bg-red-100' : 'bg-green-100', 
+                            type === 'error' ? 'text-red-700' : 'text-green-700');
+        status.textContent = message;
+        setTimeout(() => status.classList.add('hidden'), 5000);
+    },
 };
 
 // Initialize when DOM is loaded
