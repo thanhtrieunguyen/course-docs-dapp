@@ -191,6 +191,9 @@ const DocumentManagement = {
                     <td class="py-2 px-4">${doc.uploadDate ? new Date(doc.uploadDate).toLocaleString() : 'N/A'}</td>
                     <td class="py-2 px-4">${this.getStatusText(doc)}</td>
                     <td class="py-2 px-4 flex space-x-2">
+                        <button class="confim-document-btn bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600" data-id="${doc.documentId}">
+                            <i class="fas fa-check"></i>
+                        </button>
                         <button class="view-document-btn bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600" data-id="${doc.documentId}">
                             <i class="fas fa-eye"></i>
                         </button>
