@@ -75,18 +75,35 @@
                         </div>
                     </div>
                     <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Khoa </label>
+                        <label class="block text-sm font-medium mb-2">Khoa</label>
                         <select id="courseId" class="w-full p-2 border rounded" name="courseId">
-                            <option value="">Không thuộc khoa nào</option>
-                            <!-- Course options will be loaded dynamically -->
+                            <option value="NaN">-- Vui lòng chọn khoa --</option>
+                            <option value="CNTT">Công Nghệ Thông Tin</option>
+                            <option value="KTHK">Khai Thác Hàng Không</option>
+                            <option value="DLLH">Du Lịch Lữ Hành</option>
+                            <option value="QTKD">Quản Trị Kinh Doanh</option>
+                            <option value="KTDT">Kỹ Thuật Điện Tử</option>
+                            <option value="KTDL">Kỹ Thuật Điện Lạnh</option>
+                            <option value="NN">Ngoại Ngữ</option>
+                            <option value="other">Khác</option>
                         </select>
+                        <div id="otherFacultyInput" class="mt-2 hidden">
+                            <input type="text" id="customFaculty" name="customFaculty" class="w-full p-2 border rounded" placeholder="Nhập tên khoa khác">
+                        </div>
                     </div>
                     <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Môn học </label>
+                        <label class="block text-sm font-medium mb-2">Môn học</label>
                         <select id="subjectId" class="w-full p-2 border rounded" name="subjectId">
-                            <option value="">Không thuộc môn học nào</option>
-                            <!-- Course options will be loaded dynamically -->
+                            <option value="NaN">-- Chọn môn học --</option>
+                            <option value="lecture">Khai thác dữ liệu</option>
+                            <option value="assignment">Tiếng Anh 2</option>
+                            <option value="reference">Thực tập tốt nghiệp</option>
+                            <option value="exam">BlockChain</option>
+                            <option value="other">Khác</option>
                         </select>
+                        <div id="otherSubjectInput" class="mt-2 hidden">
+                            <input type="text" id="customSubject" name="customSubject" class="w-full p-2 border rounded" placeholder="Nhập tên môn học khác">
+                        </div>
                     </div>
                     <div class="mb-4">
                         <label class="flex items-center">
@@ -120,29 +137,28 @@
     <script src="js/auth.js"></script>
     <script src="js/files.js"></script>
     <script src="js/auth-storage.js"></script>
-    <!-- Make sure these run in order -->
     <script src="js/checklg.js"></script>
     <script src="js/UploadDocument.js"></script>
     
-    <!-- Manually trigger initialization after everything else is loaded -->
+    <!-- Minimal inline script to initialize -->
     <script>
-        window.addEventListener('load', function() {
-            // Check if our auth module is ready first
-            const authCheckInterval = setInterval(() => {
-                if (window.AuthApp && window.AuthApp.web3) {
-                    clearInterval(authCheckInterval);
-                    console.log("Auth module ready, initializing upload module...");
-                    if (window.initializeUploadSystem) {
-                        window.initializeUploadSystem();
-                    }
-                }
-            }, 500);
-            
-            // Timeout after 10 seconds of waiting
-            setTimeout(() => {
-                clearInterval(authCheckInterval);
-                console.log("Timed out waiting for Auth module");
-            }, 10000);
+        document.addEventListener('DOMContentLoaded', function() {
+            // Toggle custom faculty input
+            document.getElementById('courseId').addEventListener('change', function() {
+                const otherFacultyInput = document.getElementById('otherFacultyInput');
+                otherFacultyInput.classList.toggle('hidden', this.value !== 'other');
+                if (this.value !== 'other') document.getElementById('customFaculty').value = '';
+            });
+
+            // Toggle custom subject input
+            document.getElementById('subjectId').addEventListener('change', function() {
+                const otherSubjectInput = document.getElementById('otherSubjectInput');
+                otherSubjectInput.classList.toggle('hidden', this.value !== 'other');
+                if (this.value !== 'other') document.getElementById('customSubject').value = '';
+            });
+
+            // Initialize the UploadDocument system
+            window.initializeUploadSystem();
         });
     </script>
 </body>
