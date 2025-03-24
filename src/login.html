@@ -178,17 +178,22 @@
                             sessionStorage.removeItem('redirectAfterLogin'); // Xóa sau khi sử dụng
                             
                             setTimeout(() => {
-                                // Kiểm tra vai trò để chuyển hướng phù hợp
-                                const user = JSON.parse(localStorage.getItem('userAuth'));
-                                if (user && user.role === 'admin') {
-                                    window.location.href = redirectUrl || 'admin/dashboard.html';
-                                }
-                                else if(user && user.role === 'dean'){
-                                    window.location.href = redirectUrl || 'admin/document-management.html';
-                                } else {
-                                    window.location.href = redirectUrl || 'index.html';
-                                }
-                            }, 1000);
+                            // Kiểm tra vai trò để chuyển hướng phù hợp
+                            const user = JSON.parse(localStorage.getItem('userAuth'));
+
+                            if (user && user.role === 'admin') {
+                                window.location.href = redirectUrl || 'admin/dashboard.html';
+                            } 
+                            else if (user && user.role === 'dean') {
+                                window.location.href = redirectUrl || 'admin/document-management.html';
+                            } 
+                            else if (user && user.role === 'teacher') { 
+                                window.location.href = redirectUrl || 'index.html';
+                            } 
+                            else {
+                                window.location.href = redirectUrl || 'student.html';
+                            }
+                        }, 1000);
                         } else {
                             // Hiển thị thông báo lỗi dựa trên loại lỗi
                             if (result.type === 'not_registered') {

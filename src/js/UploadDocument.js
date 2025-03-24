@@ -402,8 +402,6 @@ const UploadDocument = {
             const courseSelect = document.getElementById('courseId');
             if (!courseSelect) return;
 
-            // Clear existing options
-            courseSelect.innerHTML = '<option value="">Không thuộc khóa học nào</option>';
 
             // Get all courses from the blockchain
             const courses = await this.contracts.CourseDocument.methods.getAllCourses().call();

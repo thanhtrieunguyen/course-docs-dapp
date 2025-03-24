@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh sách tài liệu - Hệ thống quản lý tài liệu khóa học</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body class="bg-gray-100" data-required-role="admin, dean"  id="adminBody">
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = JSON.parse(localStorage.getItem('userAuth') || '{}');
+            if (user && user.role) {
+                document.getElementById('adminBody').setAttribute('data-role', user.role);
+            }
+        });
+    </script>
+
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold">Danh sách tài liệu - Hệ thống quản lý tài liệu</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="accountAddress" class="text-sm text-gray-600"></span>
+                   
+                    <button id="logoutBtn" class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">Đăng xuất</button>
+        
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex space-x-8">
+                <a href="" class="px-3 py-4  text-blue-600 border-b-2 border-blue-600  font-medium admin-dean-only">
+                    <i class="fas fa-book mr-2"></i>Danh sách tài liệu
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div id="statusMessage" class="mb-4 hidden"></div>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold">Danh sách tài liệu</h2>
+                <div class="flex space-x-2">
+                    <input type="text" id="searchDocument" placeholder="Tìm kiếm tài liệu..." class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filterCourse" class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tất cả khoa</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="py-2 px-4 border-b text-left">Tiêu đề</th>
+                            <th class="py-2 px-4 border-b text-left">Người tải lên</th>
+                            <th class="py-2 px-4 border-b text-left">Khoa</th>
+                            <th class="py-2 px-4 border-b text-left">Ngày tải lên</th>
+                            <th class="py-2 px-4 border-b text-left">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="documentTableBody">
+                        <tr>
+                            <td colspan="6" class="py-4 px-4 text-center">Đang tải dữ liệu tài liệu...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    Hiển thị <span id="documentCount">0</span> tài liệu
+                </div>
+                <div class="flex space-x-2">
+                    <button id="prevPageBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded disabled:opacity-50">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="paginationInfo" class="py-1 px-3">Trang 1</span>
+                    <button id="nextPageBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded disabled:opacity-50">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+       
+
+    <!-- Modal xác nhận -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold mb-4" id="modalTitle">Xác nhận hành động</h3>
+            <p id="modalMessage" class="mb-6">Bạn có chắc chắn muốn thực hiện hành động này?</p>
+            <div class="flex justify-end space-x-2">
+                <button id="cancelModalBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
+                    Hủy
+                </button>
+                <button id="confirmModalBtn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">
+                    Xác nhận
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal gắn cờ -->
+    <div id="flagModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold mb-4">Gắn cờ tài liệu</h3>
+            <div class="mb-4">
+                <label for="flagReason" class="block text-sm font-medium text-gray-700 mb-1">Lý do gắn cờ</label>
+                <textarea id="flagReason" class="w-full border rounded px-3 py-2" rows="3" placeholder="Nhập lý do gắn cờ tài liệu này..."></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button id="cancelFlagBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded">
+                    Hủy
+                </button>
+                <button id="confirmFlagBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded">
+                    Gắn cờ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="../js/role-permissions.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin/document-management.js"></script>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', async function() {
+            await AuthApp.init();
+            console.log("AuthApp đã sẵn sàng:", AuthApp.account);
+    
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function() {
+                    if (window.AuthApp) {
+                        AuthApp.logout();
+                    } else {
+                        window.location.href = '../login.html';
+                    }
+                });
+            }
+    
+            if (window.DocumentManagement && typeof DocumentManagement.init === 'function') {
+                console.log("Bắt đầu khởi tạo DocumentManagement...");
+                await DocumentManagement.init();
+                console.log("DocumentManagement đã khởi tạo thành công");
+            } else {
+                console.error("DocumentManagement không được định nghĩa hoặc không có hàm init");
+            }
+        });
+    </script>
+</body>
+</html>
