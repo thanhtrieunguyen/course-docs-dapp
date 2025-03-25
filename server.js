@@ -135,6 +135,15 @@ function requireTeacher(req, res, next) {
     
     next();
 }
+function requireStudent(req, res, next) {
+    if (!req.user || (req.user.role !== 'student')) {
+        return res.status(403).json({ 
+            success: false, 
+        });
+    }
+    
+    next();
+}
 
 // Khởi tạo quyền mặc định cho các vai trò
 async function initializePermissions() {
@@ -1352,7 +1361,7 @@ app.post('/api/admin/delete-document', authenticateToken, requireAdmin, async (r
 });
 
 // API lấy danh sách tài liệu có phân trang
-app.get('/api/admin/documents', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/admin/documents', authenticateToken, requireAdmin, requireStudent, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -1394,7 +1403,7 @@ app.get('/api/admin/documents', authenticateToken, requireAdmin, async (req, res
 });
 
 // API gắn cờ tài liệu
-app.post('/api/admin/flag-document', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/flag-document', authenticateToken, requireAdmin, requireStudent, async (req, res) => {
     try {
         const { documentId, reason } = req.body;
         
