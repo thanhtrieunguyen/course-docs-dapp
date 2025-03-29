@@ -135,15 +135,6 @@ function requireTeacher(req, res, next) {
     
     next();
 }
-function requireStudent(req, res, next) {
-    if (!req.user || (req.user.role !== 'student')) {
-        return res.status(403).json({ 
-            success: false, 
-        });
-    }
-    
-    next();
-}
 
 // Khởi tạo quyền mặc định cho các vai trò
 async function initializePermissions() {
@@ -1361,7 +1352,7 @@ app.post('/api/admin/delete-document', authenticateToken, requireAdmin, async (r
 });
 
 // API lấy danh sách tài liệu có phân trang
-app.get('/api/admin/documents', authenticateToken, requireAdmin, requireStudent, async (req, res) => {
+app.get('/api/admin/documents', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -1403,7 +1394,7 @@ app.get('/api/admin/documents', authenticateToken, requireAdmin, requireStudent,
 });
 
 // API gắn cờ tài liệu
-app.post('/api/admin/flag-document', authenticateToken, requireAdmin, requireStudent, async (req, res) => {
+app.post('/api/admin/flag-document', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { documentId, reason } = req.body;
         
@@ -1579,5 +1570,45 @@ app.put('/api/document/:documentId', authenticateToken, upload.single('file'), a
     } catch (error) {
         console.error('Error updating document:', error);
         res.status(500).json({ success: false, error: 'Failed to update document: ' + error.message });
+    }
+});
+
+// Endpoint để lấy tài liệu có sẵn cho học viên
+app.get('/api/documents/available', authenticateToken, async (req, res) => {
+    try {
+        // Lấy tất cả tài liệu công khai hoặc thuộc về người dùng đang đăng nhập
+        const documents = await Document.find({
+            $or: [
+                { isPublic: true },
+                { owner: req.user.address }
+            ],
+            isDeleted: { $ne: true }
+        }).select('-fileContent');
+
+        res.json({
+            success: true,
+            documents: documents.map(doc => ({
+                id: doc._id,
+                documentId: doc.documentId,
+                title: doc.title,
+                description: doc.description,
+                fileName: doc.fileName,
+                fileSize: doc.fileSize,
+                fileType: doc.fileType,
+                owner: doc.owner,
+                ownerName: doc.ownerName,
+                isPublic: doc.isPublic,
+                isVerified: doc.isVerified,
+                courseId: doc.courseId,
+                uploadDate: doc.uploadDate,
+                accessCount: doc.accessHistory.length
+            }))
+        });
+    } catch (error) {
+        console.error('Error retrieving available documents:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve documents: ' + error.message
+        });
     }
 });

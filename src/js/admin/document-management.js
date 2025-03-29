@@ -191,7 +191,7 @@ const DocumentManagement = {
                     <td class="py-2 px-4">${doc.uploadDate ? new Date(doc.uploadDate).toLocaleString() : 'N/A'}</td>
                     <td class="py-2 px-4">${this.getStatusText(doc)}</td>
                     <td class="py-2 px-4 flex space-x-2">
-                        <button class="confim-document-btn bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600" data-id="${doc.documentId}">
+                        <button class="confirm-document-btn bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600" data-id="${doc.documentId}">
                             <i class="fas fa-check"></i>
                         </button>
                         <button class="view-document-btn bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600" data-id="${doc.documentId}">
@@ -252,8 +252,16 @@ const DocumentManagement = {
             const viewBtn = e.target.closest('.view-document-btn');
             const editBtn = e.target.closest('.edit-document-btn');
             const deleteBtn = e.target.closest('.delete-document-btn');
+            const confirmBtn = e.target.closest('.confirm-document-btn');
 
-            if (viewBtn) {
+            if (confirmBtn) {
+                const documentId = confirmBtn.dataset.id;
+                if (!documentId) {
+                    this.showStatus('error', 'Không thể xác định tài liệu để xác nhận');
+                    return;
+                }
+                this.toggleDocumentPublic(documentId);
+            } else if (viewBtn) {
                 const documentId = viewBtn.dataset.id || viewBtn.closest('tr')?.dataset.documentId;
                 console.log('View button clicked, documentId:', documentId);
                 if (!documentId) {
@@ -319,54 +327,118 @@ const DocumentManagement = {
         if (filterCourse) filterCourse.addEventListener('change', () => this.filterDocuments());
     },
     
+    toggleDocumentPublic: async function(documentId) {
+        try {
+            const userAuth = JSON.parse(localStorage.getItem('userAuth'));
+            if (!userAuth?.token) throw new Error('Không tìm thấy thông tin xác thực');
+
+            const doc = this.documents.find(d => d.documentId === documentId);
+            if (!doc) throw new Error('Không tìm thấy tài liệu');
+
+            // Create form data with updated public status
+            const formData = new FormData();
+            formData.append('isPublic', true);
+            
+            // Keep existing values
+            formData.append('title', doc.title);
+            formData.append('description', doc.description);
+            formData.append('courseId', doc.courseId || '');
+            formData.append('category', doc.category || '');
+            formData.append('isVerified', doc.isVerified);
+            formData.append('isFeatured', doc.isFeatured);
+            formData.append('isArchived', doc.isArchived);
+
+            const response = await fetch(`/api/document/${documentId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${userAuth.token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+
+            // Update local document data
+            const result = await response.json();
+            const updatedDoc = result.document;
+            
+            const index = this.documents.findIndex(d => d.documentId === documentId);
+            if (index !== -1) {
+                this.documents[index] = { ...doc, ...updatedDoc };
+            }
+
+            this.showStatus('success', 'Đã chuyển tài liệu sang chế độ công khai');
+            await this.loadDocuments(); // Refresh list
+
+        } catch (error) {
+            console.error('Error toggling document public status:', error);
+            this.showStatus('error', 'Không thể thay đổi trạng thái tài liệu: ' + error.message);
+        }
+    },
+
     viewDocument: async function(documentId) {
         try {
             const userAuth = JSON.parse(localStorage.getItem('userAuth'));
             if (!userAuth?.token) throw new Error('Không tìm thấy thông tin xác thực');
-    
-            console.log('Viewing document with ID:', documentId);
-            console.log('Current documents array:', JSON.stringify(this.documents, null, 2)); // Hiển thị chi tiết
-            console.log('Using token:', userAuth.token);
-    
+
             const doc = this.documents.find(d => d.documentId === documentId);
             if (!doc) {
-                console.log('Document not found in local array:', documentId);
                 throw new Error('Không tìm thấy tài liệu trong danh sách hiện tại');
             }
-            console.log('Found document:', doc);
-    
-            const response = await fetch(`/api/document/${documentId}`, {
+
+            // Sửa URL để sử dụng port 3000
+            const response = await fetch(`http://localhost:3000/api/document/${documentId}`, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${userAuth.token}`
+                    'Authorization': `Bearer ${userAuth.token}`,
+                    'Accept': '*/*'  // Thêm header Accept
                 }
             });
-    
-            console.log('API response status:', response.status, response.statusText);
+
             if (!response.ok) {
-                const errorData = await response.text();
-                throw new Error(`Không thể tải tài liệu: ${response.status} ${response.statusText} - ${errorData}`);
+                console.error('Server response:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('Error details:', errorText);
+                throw new Error(`Lỗi khi tải tài liệu: ${response.status} ${response.statusText}`);
             }
-    
+
+            // Get content type and check it
+            const contentType = response.headers.get('content-type');
+            console.log('Content-Type:', contentType);
+            
             const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const fileExtension = doc.fileType ? doc.fileType.split('/')[1] : 'pdf';
-            if (['pdf', 'txt'].includes(fileExtension)) {
+            console.log('Received blob:', blob);
+
+            // Handle different file types
+            if (contentType?.includes('application/pdf') || 
+                contentType?.includes('text/plain') || 
+                contentType?.includes('text/html') ||
+                contentType?.includes('image/')) {
+                // Display in new tab for viewable files
+                const url = window.URL.createObjectURL(blob);
                 window.open(url, '_blank');
+                // Clean up URL after window opens
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
             } else {
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = doc.fileName || `${doc.title}.${fileExtension}`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                // Download other file types
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = doc.fileName || `document.${doc.fileType?.split('/')[1] || 'file'}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
             }
-            window.URL.revokeObjectURL(url);
-    
-            this.showStatus('success', 'Đã mở tài liệu thành công');
+
+            this.showStatus('success', 'Tài liệu đã được mở thành công');
         } catch (error) {
             console.error('Error viewing document:', error);
-            this.showStatus('error', 'Không thể xem tài liệu: ' + error.message);
+            this.showStatus('error', `Không thể xem tài liệu: ${error.message}`);
         }
     },
     

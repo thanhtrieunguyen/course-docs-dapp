@@ -258,19 +258,17 @@ const UploadDocument = {
                 throw new Error("Vui lòng điền đầy đủ thông tin và chọn file để tải lên");
             }
     
-            // Upload to MongoDB first
             const uploadResult = await this.uploadToMongoDB(
                 formData.file, 
                 formData.title, 
                 formData.description, 
                 formData.isPublic, 
                 formData.courseId,
-                formData.subjectId, // Truyền đúng tham số subjectId
+                formData.subjectId,
                 this.fileHash
             );
     
             if (uploadResult.success) {
-                // If MongoDB upload succeeds, then register on blockchain
                 await this.registerDocumentOnBlockchain(
                     formData.title, 
                     formData.description, 
@@ -280,7 +278,6 @@ const UploadDocument = {
                     formData.subjectId, 
                     uploadResult.documentId
                 );
-                // Only show alert after both operations complete
                 alert("Tài liệu đã được tải lên thành công!");
                 await this.loadDocuments();
             } else {
@@ -295,10 +292,11 @@ const UploadDocument = {
         }
     },
 
-    uploadToMongoDB: async function(file, title, description, isPublic, courseId, subjectId, contentHash) { // Thêm tham số subjectId
+    uploadToMongoDB: async function(file, title, description, isPublic, courseId, contentHash) {
         try {
             const token = localStorage.getItem('token');
             if (!token) {
+                // Try to refresh token or redirect to login
                 localStorage.removeItem('userAuth');
                 window.location.href = "login.html";
                 throw new Error('Session expired. Please login again.');
@@ -313,7 +311,7 @@ const UploadDocument = {
             formData.append('isPublic', isPublic);
             formData.append('courseId', courseId || "");
             formData.append('contentHash', contentHash || "");
-            formData.append('subjectId', subjectId || ""); // Sử dụng tham số subjectId đã được truyền vào
+            formData.append('subjectId', subjectId || "");
 
             console.log("Sending request to /api/upload-document...");
             const response = await fetch('http://localhost:3000/api/upload-document', {
@@ -404,6 +402,8 @@ const UploadDocument = {
             const courseSelect = document.getElementById('courseId');
             if (!courseSelect) return;
 
+            // // Clear existing options
+            // courseSelect.innerHTML = '<option value="">Không thuộc khóa học nào</option>';
 
             // Get all courses from the blockchain
             const courses = await this.contracts.CourseDocument.methods.getAllCourses().call();
